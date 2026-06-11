@@ -34,6 +34,10 @@ class VideoConfig(BaseModel):
     fps: int = 30
     target_duration_sec: int = 72
     min_duration_sec: int = 62
+    # Per-shot pacing: each scene is one held image. Vary shot length in this range
+    # (quick cuts on punchy dialogue, a beat longer on emotional/establishing shots).
+    min_shot_sec: float = 4
+    max_shot_sec: float = 7
 
 
 class ImageConfig(BaseModel):

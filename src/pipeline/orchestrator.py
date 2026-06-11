@@ -3,7 +3,7 @@
 Usage (BUILD.md §11) — `--series` names any bible under config/series/<id>.json:
     uv run python -m src.pipeline.orchestrator --series sewer-surfers --prompt "..."
     uv run python -m src.pipeline.orchestrator --series sewer-surfers --continue
-    uv run python -m src.pipeline.orchestrator --series sewer-surfers --episode ep_0007 --force images
+    uv run python -m src.pipeline.orchestrator --series sewer-surfers --episode sewer-surfers_ep_0007 --force images
 """
 
 from __future__ import annotations
@@ -33,14 +33,15 @@ def save_state(episode_dir: Path, state: dict[str, bool]) -> None:
     (episode_dir / STATE_FILE).write_text(json.dumps(state, indent=2) + "\n")
 
 
-def next_episode_id(settings: Settings) -> str:
-    """First unused ep_NNNN under the episodes dir."""
+def next_episode_id(settings: Settings, series_id: str) -> str:
+    """First unused `<series_id>_ep_NNNN` — episodes are numbered per series."""
     episodes_dir = settings.episodes_dir()
-    existing = {p.name for p in episodes_dir.glob("ep_*")} if episodes_dir.exists() else set()
+    prefix = f"{series_id}_ep_"
+    existing = {p.name for p in episodes_dir.glob(f"{prefix}*")} if episodes_dir.exists() else set()
     n = 1
-    while f"ep_{n:04d}" in existing:
+    while f"{prefix}{n:04d}" in existing:
         n += 1
-    return f"ep_{n:04d}"
+    return f"{prefix}{n:04d}"
 
 
 def load_episode(episode_dir: Path) -> Episode:
@@ -59,7 +60,7 @@ def run(
     bible = load_series_bible(series_id)
     force = force or []
 
-    episode_id = episode_id or next_episode_id(settings)
+    episode_id = episode_id or next_episode_id(settings, series_id)
     episode_dir = settings.episodes_dir() / episode_id
     episode_dir.mkdir(parents=True, exist_ok=True)
     state = load_state(episode_dir)
@@ -107,7 +108,7 @@ def main() -> None:
     parser.add_argument("--series", required=True, help="series id (a bible under config/series/<id>.json), e.g. sewer-surfers")
     parser.add_argument("--prompt", help="one-line episode prompt")
     parser.add_argument("--continue", dest="continue_", action="store_true", help="continue from the last cliffhanger")
-    parser.add_argument("--episode", help="existing episode id to resume, e.g. ep_0007")
+    parser.add_argument("--episode", help="existing episode id to resume, e.g. sewer-surfers_ep_0007")
     parser.add_argument("--force", nargs="*", default=[], choices=STAGES, help="stages to re-run even if done")
     parser.add_argument("--until", choices=STAGES, help="stop after this stage")
     args = parser.parse_args()

@@ -1,5 +1,5 @@
 paths: { episodes: episodes, ready_to_post: ready_to_post, models: models }
-video: { width: 1080, height: 1920, fps: 30, target_duration_sec: 72, min_duration_sec: 62 }
+video: { width: 1080, height: 1920, fps: 30, target_duration_sec: 72, min_duration_sec: 62, min_shot_sec: 4, max_shot_sec: 7 }
 image: { backend: mflux, model: flux-schnell, steps: 4 }    # or backend: comfyui
 hook:  { backend: ltx, max_seconds: 4, allow_library_fallback: true }
 tts:   { backend: kokoro }

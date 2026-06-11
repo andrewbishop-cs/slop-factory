@@ -31,6 +31,11 @@ Refer to characters by their bible name. Do NOT restate a character's physical a
 global art style: those are applied automatically at render time, so restating them is wasteful.
 - Every scene needs `narration_text`, a `mood` (short phrase) and an `intensity` in [0,1] that \
 tracks the emotional arc (calmer setup → peak near the climax).
+- PACING FOR RETENTION: each scene is ONE held image (a single shot). VARY shot length within the \
+range given below — quick cuts on punchy/rapid dialogue, a beat longer on an emotional or establishing \
+shot — but never exceed the hard max. Don't make every shot the same length. Prefer MANY short shots \
+over a few long ones, and in a dialogue exchange give EACH speaker their own shot and cut/pan to \
+whoever is talking — never hold one static frame through a long back-and-forth.
 - `cliffhanger_text` must be loopable: it should make the viewer want the next episode and ideally \
 loop back into the hook.
 - `caption.description` is keyword-led (front-load the searchable hook), includes relevant hashtags, \
@@ -90,14 +95,23 @@ def _render_plot_state(bible: SeriesBible) -> str:
     return "\n".join(parts)
 
 
-def episode_number(bible: SeriesBible) -> int:
-    """1-based ordinal of the episode about to be written (next after the log)."""
-    return len(bible.plot_state.episode_log) + 1
+def episode_number(bible: SeriesBible, episode_id: str | None = None) -> int:
+    """1-based ordinal of the episode being written.
+
+    If `episode_id` is already in the log (a regeneration), return its position;
+    otherwise it's the next new episode (one past the log).
+    """
+    log = bible.plot_state.episode_log
+    if episode_id:
+        for i, entry in enumerate(log):
+            if entry.startswith(f"{episode_id}:"):
+                return i + 1
+    return len(log) + 1
 
 
-def _render_position(bible: SeriesBible) -> str:
+def _render_position(bible: SeriesBible, episode_id: str | None = None) -> str:
     """Where this episode sits in the season — drives purpose + finale handling."""
-    n = episode_number(bible)
+    n = episode_number(bible, episode_id)
     if not bible.arc:
         return f"EPISODE POSITION: this is episode {n} (no fixed season length)."
     total = bible.arc.total_episodes
@@ -157,6 +171,9 @@ def generate_script(
     episode_id = episode_dir.name
     target = settings.video.target_duration_sec
     minimum = settings.video.min_duration_sec
+    min_shot = settings.video.min_shot_sec
+    max_shot = settings.video.max_shot_sec
+    approx_shots = max(1, round(target / ((min_shot + max_shot) / 2)))
 
     if prompt:
         task = f'Write the next episode from this one-line idea:\n"{prompt}"'
@@ -168,10 +185,14 @@ def generate_script(
 
     user_text = (
         f"{task}\n\n"
-        f"{_render_position(bible)}\n\n"
+        f"{_render_position(bible, episode_id)}\n\n"
         f"CURRENT PLOT STATE:\n{_render_plot_state(bible)}\n\n"
         f"DURATION TARGET: aim for ~{target}s total; the hard minimum (hook + all scenes) "
-        f"is {minimum}s. Set target_duration_sec to {target}."
+        f"is {minimum}s. Set target_duration_sec to {target}.\n"
+        f"SHOT PACING: vary each scene between {min_shot:g}s and {max_shot:g}s (hard ceiling "
+        f"{max_shot:g}s) — quick ~{min_shot:g}s cuts on punchy dialogue, up to ~{max_shot:g}s on "
+        f"emotional or establishing shots; don't make them all the same length. That's roughly "
+        f"{approx_shots} scenes — cut to the speaker in dialogue rather than lingering on one image."
     )
 
     client = Anthropic(api_key=anthropic_api_key())
@@ -206,13 +227,31 @@ def generate_script(
             f"below the {minimum}s minimum (hook + scenes). Re-run to regenerate."
         )
 
+    long_shots = [s.id for s in episode.scenes if s.duration_sec > max_shot]
+    if long_shots:
+        print(
+            f"[{episode_id}] WARNING: scenes {long_shots} exceed max_shot_sec={max_shot:g}s "
+            f"— may drag for short-form retention."
+        )
+
     (episode_dir / "episode.json").write_text(episode.model_dump_json(indent=2) + "\n")
     _update_plot_state(bible, episode)
     return episode
 
 
 def _update_plot_state(bible: SeriesBible, episode: Episode) -> None:
-    """Record this episode in the bible so `--continue` has continuity to build on."""
+    """Record this episode in the bible so `--continue` has continuity to build on.
+
+    Idempotent in `episode_id`: regenerating an existing episode updates its log
+    entry in place instead of appending a duplicate.
+    """
     bible.plot_state.last_cliffhanger = episode.cliffhanger_text
-    bible.plot_state.episode_log.append(f"{episode.episode_id}: {episode.title}")
+    entry = f"{episode.episode_id}: {episode.title}"
+    log = bible.plot_state.episode_log
+    for i, existing in enumerate(log):
+        if existing.startswith(f"{episode.episode_id}:"):
+            log[i] = entry
+            break
+    else:
+        log.append(entry)
     save_series_bible(bible)

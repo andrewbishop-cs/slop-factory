@@ -284,7 +284,7 @@ slop-factory/
 │   └── fonts/                    # caption font (e.g. a bold TTF)
 ├── models/                       # weights (+ optional ComfyUI/) — gitignored
 ├── episodes/                     # per-episode working dirs — gitignored
-│   └── ep_0007/
+│   └── sewer-surfers_ep_0007/   # folders are <series_id>_ep_NNNN (numbered per series)
 │       ├── episode.json
 │       ├── state.json
 │       ├── images/ scene_01.png …
@@ -322,7 +322,7 @@ slop-factory/
 ### `config/settings.yaml` (key fields)
 ```yaml
 paths: { episodes: episodes, ready_to_post: ready_to_post, models: models }
-video: { width: 1080, height: 1920, fps: 30, target_duration_sec: 72, min_duration_sec: 62 }
+video: { width: 1080, height: 1920, fps: 30, target_duration_sec: 72, min_duration_sec: 62, min_shot_sec: 4, max_shot_sec: 7 }  # per-shot pacing: vary 4-7s for retention
 image: { backend: mflux, model: flux-schnell, steps: 4 }    # or backend: comfyui
 hook:  { backend: ltx, max_seconds: 4, allow_library_fallback: true }
 tts:   { backend: kokoro }
@@ -335,7 +335,7 @@ llm:   { model: claude-opus-4-8, effort: medium }
 ### `episode.json` schema (pydantic `Episode`) — concrete example
 ```json
 {
-  "episode_id": "ep_0007",
+  "episode_id": "sewer-surfers_ep_0007",
   "series_id": "sewer-surfers",
   "title": "The Spillway Showdown",
   "hook_text": "He hit the spillway at full speed.",
@@ -423,7 +423,7 @@ Each module: **Purpose · Input · Output · Key libs · Done-when.** All read c
 
 **`schemas.py`** — Purpose: pydantic models `SeriesBible`, `Episode`, `Scene`, `Hook`, `Music`, `Caption`. Done-when: `Episode.model_validate_json()` accepts the example above and rejects malformed input.
 
-**`script_gen.py`** — Purpose: one-line prompt (or "continue") + series bible → validated `episode.json`. Input: `series_id`, optional `prompt`. Output: `episodes/<id>/episode.json`. Key libs: `anthropic` (Opus 4.8, structured output via `output_config.format` = `{type: json_schema, schema: Episode.model_json_schema()}` with `output_config.effort` from `settings.llm.effort`; the series bible is the cached system prefix). Notes: the bible's creative brief — `premise`/`setting`/`tone`/`episode_format` + per-character `personality` — is injected so each series writes structurally distinct episodes; scene `image_prompt`s name characters and describe the shot only (appearance_tokens + style_anchor are prepended at render in M2, so don't restate them). Enforce frame-1 hook, ≥62s total (sum scene durations + hook), per-scene `mood`+`intensity`, loopable `cliffhanger_text`, keyword-led `caption.description`; `episode_id`/`series_id` are set from the orchestrator, not the model. After generating, update bible `plot_state` (`last_cliffhanger` + `episode_log`). Done-when: produces a schema-valid episode whose durations sum ≥ `min_duration_sec`.
+**`script_gen.py`** — Purpose: one-line prompt (or "continue") + series bible → validated `episode.json`. Input: `series_id`, optional `prompt`. Output: `episodes/<id>/episode.json`. Key libs: `anthropic` (Opus 4.8, structured output via `output_config.format` = `{type: json_schema, schema: Episode.model_json_schema()}` with `output_config.effort` from `settings.llm.effort`; the series bible is the cached system prefix). Notes: the bible's creative brief — `premise`/`setting`/`tone`/`episode_format` + per-character `personality` — is injected so each series writes structurally distinct episodes; scene `image_prompt`s name characters and describe the shot only (appearance_tokens + style_anchor are prepended at render in M2, so don't restate them). Enforce frame-1 hook, ≥62s total (sum scene durations + hook), per-scene `mood`+`intensity`, loopable `cliffhanger_text`, keyword-led `caption.description`; `episode_id`/`series_id` are set from the orchestrator, not the model. **Shot pacing for retention:** each scene is one held image, so the prompt asks for varied shot lengths in `video.min_shot_sec`..`max_shot_sec` (4–7s; quick cuts on punchy dialogue, longer on emotional/establishing beats, 7s hard ceiling) → ~12 short shots for a 72s ep, cutting to the speaker in dialogue rather than lingering; scenes over the max get a non-fatal warning. After generating, update bible `plot_state` (`last_cliffhanger` + `episode_log`). Done-when: produces a schema-valid episode whose durations sum ≥ `min_duration_sec`.
 
 **`images.py`** — Purpose: render one keyframe per scene with character consistency. Input: `episode.json` + bible. Output: `images/scene_NN.png` (1080×1920). Key libs: mflux (FLUX-schnell) **or** ComfyUI API. Notes: prepend each scene's `image_prompt` with the character `appearance_tokens` + `style_anchor`; for consistency use a trained character LoRA (commercial) or FLUX-Kontext reference (prototype). Include `ken_burns(img, move, duration) -> clip` helper using ffmpeg `zoompan`. Done-when: N portrait PNGs, visually consistent character across scenes.
 
@@ -524,7 +524,7 @@ Build in order. After each milestone: run **Test**, confirm **Expected**, then *
 Goal: run the factory across **N accounts/niches** from one machine to reach follower goals in parallel (Phase-2 revenue is gated on per-account eligibility, so this is the rate-limiter).
 - **Build:**
   - **Account registry** `config/accounts.yaml`: list of `{ account_id, handle, series_id, region: us, cadence_per_day, ready_dir }`. One niche/series per account (distinct content — never cross-post identical videos). Add a pydantic `AccountsConfig` in `config.py` (additive, optional).
-  - **Per-account output routing:** `ready_to_post/<account_id>/` instead of a single dir. `upload/tiktok_stub.py` routes the finished file by the episode's account. Episode ids stay globally unique (`next_episode_id` unchanged); add the owning `account_id`/`series_id` to `state.json`.
+  - **Per-account output routing:** `ready_to_post/<account_id>/` instead of a single dir. `upload/tiktok_stub.py` routes the finished file by the episode's account. Episode ids are already series-namespaced (`<series_id>_ep_NNNN`, numbered per series) so they stay globally unique across accounts; add the owning `account_id` to `state.json`.
   - **Fleet runner** `scripts/run_fleet.py` (or `orchestrator --account <id>` / `--all`): loop the registry, generate each account's day of episodes under `caffeinate -i`. Reuses the resumable per-episode `state.json` so a crash mid-batch resumes cleanly.
   - **More series bibles:** one `config/series/<niche>.json` per account (the pipeline is already series-decoupled — this is config, not code).
 - **Account ops (manual — the unautomatable node, see `research/14-monetization-eligibility-canadian-in-us.md`):** each account needs its own **US-region setup** (US eSIM/SIM, US App Store, US wifi, no VPN), warm-up at 1–3 posts/day, staggered footprint. Track per-account standing + follower count in `accounts.yaml`.
@@ -598,7 +598,7 @@ uv run python -m src.pipeline.orchestrator --series sewer-surfers --prompt "Ript
 # Continue the plot from the last cliffhanger
 uv run python -m src.pipeline.orchestrator --series sewer-surfers --continue
 # Force re-run a stage
-uv run python -m src.pipeline.orchestrator --series sewer-surfers --episode ep_0007 --force images
+uv run python -m src.pipeline.orchestrator --series sewer-surfers --episode sewer-surfers_ep_0007 --force images
 # Review UI
 uv run streamlit run src/ui/app.py
 # (If using ComfyUI) start it first in another terminal:

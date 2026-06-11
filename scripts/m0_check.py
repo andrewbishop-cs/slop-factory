@@ -12,7 +12,7 @@ from src.schemas import Episode
 
 EXAMPLE_EPISODE = """
 {
-  "episode_id": "ep_0007",
+  "episode_id": "sewer-surfers_ep_0007",
   "series_id": "sewer-surfers",
   "title": "The Spillway Showdown",
   "hook_text": "He hit the spillway at full speed.",
