@@ -1,0 +1,16 @@
+# Secrets
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Heavy / generated artifacts
+models/
+episodes/
+ready_to_post/
+
+# macOS
+.DS_Store

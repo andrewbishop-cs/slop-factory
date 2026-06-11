@@ -1,0 +1,26 @@
+{
+  "series_id": "fridge-detectives",
+  "premise": "A walnut detective and his anxious banana sidekick solve petty crimes in a fridge.",
+  "style_anchor": "consistent 3D Pixar-style render, soft cinematic lighting, vibrant",
+  "characters": [
+    {
+      "name": "walnut",
+      "appearance_tokens": "a plump cartoon walnut wearing a tiny grey fedora, big expressive eyes",
+      "personality": "deadpan, world-weary",
+      "reference_image": "assets/characters/walnut/ref.png",
+      "voice": "am_michael"
+    },
+    {
+      "name": "banana",
+      "appearance_tokens": "a lanky cartoon banana with wide nervous eyes and a slightly peeling top",
+      "personality": "anxious, eager to please",
+      "reference_image": "assets/characters/banana/ref.png",
+      "voice": "am_adam"
+    }
+  ],
+  "plot_state": {
+    "active_threads": [],
+    "last_cliffhanger": null,
+    "episode_log": []
+  }
+}

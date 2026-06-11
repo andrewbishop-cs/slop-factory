@@ -1,0 +1,9 @@
+paths: { episodes: episodes, ready_to_post: ready_to_post, models: models }
+video: { width: 1080, height: 1920, fps: 30, target_duration_sec: 72, min_duration_sec: 62 }
+image: { backend: mflux, model: flux-schnell, steps: 4 }    # or backend: comfyui
+hook:  { backend: ltx, max_seconds: 4, allow_library_fallback: true }
+tts:   { backend: kokoro }
+music: { backend: ace-step, gain_under_voice: 0.18 }
+captions: { font: assets/fonts/Bold.ttf, words_per_group: 4, position: lower_third, active_color: yellow }
+audio: { target_lufs: -14, true_peak: -1.5 }
+llm:   { model: claude-opus-4-8, effort: medium }
