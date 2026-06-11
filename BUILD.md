@@ -12,7 +12,7 @@
 
 This file is the implementation plan. Hand it to Cursor and build **one milestone at a time** with a checkpoint after each.
 
-**Current state (read before prompting Cursor):** the **M0 scaffold already exists on disk** — `src/schemas.py`, `src/config.py`, `src/pipeline/orchestrator.py` (resumable), all 8 stage modules as `NotImplementedError` stubs, `config/settings.yaml`, the series bible, and `scripts/m0_check.py`. What is **not** done: the Python env is empty and `ffmpeg` isn't installed (so the M0 test can't pass yet), and nothing is committed. So the first task is **environment setup + verifying/committing M0**, not building M0 from scratch.
+**Current state (read before prompting Cursor):** environment setup is **done** (§3 brew deps incl. `ffmpeg`/`espeak-ng`, the `.venv` with the §4 packages pinned into `requirements.txt`/`pyproject.toml`; MPS verified `True`) and **M0 is complete and committed** — `src/schemas.py`, `src/config.py`, `src/pipeline/orchestrator.py` (resumable), all 8 stage modules as `NotImplementedError` stubs, `config/settings.yaml`, the `sewer-surfers` series bible, and `scripts/m0_check.py` (passes `ALL PASS`). Known gap: `stable-audio-tools` (M6 music) won't install on Python 3.12 — deferred, use the ACE-Step repo route at M6. **Next milestone: M1 (`script_gen`).** Build M1→M9 in order, one milestone per commit.
 
 **Setup in Cursor:**
 1. Add `BUILD.md` to the Cursor chat as context (optionally also `research/15-v0-spec.md` for the "why").
@@ -67,7 +67,7 @@ The v0 build below (M0–M9) is **Phase 0 core**: one account's worth of video f
 one-line prompt ─┐
                  ▼
         ┌──────────────────┐   reads/writes
-        │ 1. script_gen     │◄────────────► config/series_bible.json   (continuity)
+        │ 1. script_gen     │◄────────────► config/series/<id>.json   (per-series bible + continuity)
         │ (Opus 4.8, cloud) │
         └────────┬──────────┘
                  ▼  episodes/<id>/episode.json   (validated against schema)
@@ -277,7 +277,7 @@ slop-factory/
 ├── config/
 │   ├── settings.yaml             # paths, model choices, resolution, target duration, caption style
 │   └── series/
-│       └── fridge-detectives.json   # the series bible (one per show)
+│       └── sewer-surfers.json       # a series bible (one JSON per show; add more to add series)
 ├── assets/
 │   ├── characters/<char>/        # reference image(s) + voice sample wav
 │   ├── hook_library/             # reusable hook clips (slap/fall/trip…)
@@ -336,59 +336,81 @@ llm:   { model: claude-opus-4-8, effort: medium }
 ```json
 {
   "episode_id": "ep_0007",
-  "series_id": "fridge-detectives",
-  "title": "The Banana Peel Betrayal",
-  "hook_text": "He never saw it coming.",
+  "series_id": "sewer-surfers",
+  "title": "The Spillway Showdown",
+  "hook_text": "He hit the spillway at full speed.",
   "hook": {
     "type": "video",
-    "prompt": "cartoon walnut detective in a fedora slips on a banana peel, exaggerated slapstick fall, dynamic camera, 3D Pixar style",
+    "prompt": "surfer on a neon hydro-board rockets off a sewer spillway, huge spray, exaggerated wipeout, dynamic camera, bold anime ink-outline style",
     "library_clip": null,
     "duration_sec": 3.5,
-    "sfx": "comedic whoosh then thud"
+    "sfx": "rushing water then a comedic splash"
   },
-  "characters_present": ["walnut", "banana"],
+  "characters_present": ["circuit", "riptide"],
   "scenes": [
     {
       "id": 1,
-      "image_prompt": "<walnut appearance_tokens> sitting in a dim fridge office, neon light, <style_anchor>",
+      "image_prompt": "circuit crouched low on his glowing hydro-board at the mouth of a dark flood tunnel, checking telemetry, water rushing toward him",
       "motion": { "type": "ken_burns", "move": "push_in", "duration_sec": 6 },
-      "narration_text": "Detective Walnut thought it was an ordinary Tuesday.",
+      "narration_text": "Circuit had run the numbers a thousand times. Tonight, the math would finally beat the madman.",
       "top_text": null,
-      "mood": "noir-calm",
+      "mood": "tense-calm",
       "intensity": 0.3,
       "duration_sec": 6
     }
   ],
-  "cliffhanger_text": "Who left the peel? Part 8 tomorrow.",
-  "music": { "global_mood": "noir comedic tension", "bpm_hint": 90 },
+  "cliffhanger_text": "Who takes the next heat? The crown's still up for grabs.",
+  "music": { "global_mood": "high-energy underground race tension", "bpm_hint": 128 },
   "caption": {
-    "description": "Detective Walnut's worst Tuesday yet 🥜 #aianimation #cartoon #brainrot",
-    "hashtags": ["#aianimation", "#cartoon", "#fridgedetectives"],
+    "description": "Gadgets vs. guts in the sewer race for the crown 🌊 #aianimation #cartoon #brainrot",
+    "hashtags": ["#aianimation", "#cartoon", "#sewersurfers"],
     "ai_label": true
   },
   "target_duration_sec": 72
 }
 ```
 
-### `series_bible.json` schema (continuity)
+### `series_bible.json` schema (per-series creative brief + continuity)
+
+**One JSON per series, at `config/series/<series_id>.json`.** The pipeline is series-agnostic — `--series <id>` loads the matching bible and every stage runs off it — so **adding a new series is config, not code** (running many series as an overnight fleet is M10). The required fields (`series_id`, `premise`, `style_anchor`, `characters`) are joined by an optional **creative brief** (`display_name`, `logline`, `setting`, `episode_format`, `tone`, `arc`) that is what makes two series produce structurally different episodes from the same `Episode` schema; `episode_format` and `arc` are fed into the M1 script prompt. The optional **`arc`** (a `SeasonArc`: `total_episodes`, `synopsis`, `finale`, `episode_purposes[]`, `pacing_notes`) turns a series into a planned multi-episode story — M1 computes the current episode's position (`len(plot_state.episode_log)+1`) and uses the arc to vary each episode's purpose (so not every episode is a race) and to deliver the finale on the last episode. All creative-brief fields are optional/defaulted so older bibles still validate.
+
 ```json
 {
-  "series_id": "fridge-detectives",
-  "premise": "A walnut detective and his anxious banana sidekick solve petty crimes in a fridge.",
-  "style_anchor": "consistent 3D Pixar-style render, soft cinematic lighting, vibrant",
+  "series_id": "sewer-surfers",
+  "display_name": "Sewer Surfers",
+  "logline": "Two rival riders build custom hydro-boards and battle across a season for the Sewer Crown.",
+  "premise": "Underground surfers design their own hydro-boards to ride the storm drains; two rivals trade wins and defeats across a season-long duel building toward the Sewer Crown race.",
+  "setting": "A neon-lit underground world of storm drains and flood tunnels beneath a rain-soaked city.",
+  "style_anchor": "stylized 2D anime aesthetic, bold clean ink outlines, cel-shaded figures, expressive hand-drawn animation, dynamic speed lines, vibrant neon palette over painterly backgrounds",
+  "tone": "high-energy sports-anime rivalry with comedic beats and real stakes",
+  "episode_format": "A ~60-75s self-contained beat that also advances the season arc: frame-1 hook, stakes setup, gadgets-vs-nerve contrast where relevant, loopable cliffhanger. NOT every episode is a race — vary purpose per arc.episode_purposes.",
+  "arc": {
+    "total_episodes": 20,
+    "synopsis": "A season-long rivalry; ep 1 opens on a high-stakes race, then rising action through wins, defeats, and new strategies toward the climactic Sewer Crown race.",
+    "finale": "Episode 20 is the Sewer Crown race: it reveals the winner and closes on a victory lap.",
+    "episode_purposes": ["a spaced-out race/heat", "a new board or strategy", "a defeat/setback", "character or relationship beat", "training run", "rising buildup toward a race"],
+    "pacing_notes": "Space races out as anticipated tentpole events; fill between them with strategy and character episodes; plant seeds for the finale and escalate as ep 20 nears."
+  },
   "characters": [
     {
-      "name": "walnut",
-      "appearance_tokens": "a plump cartoon walnut wearing a tiny grey fedora, big expressive eyes",
-      "personality": "deadpan, world-weary",
-      "reference_image": "assets/characters/walnut/ref.png",
-      "voice": "assets/characters/walnut/voice.wav"   // or a Kokoro voice id
+      "name": "circuit",
+      "appearance_tokens": "a wiry inventor in a gadget-studded wetsuit with LED strips and round goggles, board bristling with sensors",
+      "personality": "brainy, calculating; wins by out-engineering the course",
+      "reference_image": "assets/characters/circuit/ref.png",
+      "voice": "am_michael"
+    },
+    {
+      "name": "riptide",
+      "appearance_tokens": "a broad-shouldered daredevil in a scarred neon wetsuit with a shark-fin mohawk and a minimalist speed board",
+      "personality": "reckless, fearless; rides on pure instinct",
+      "reference_image": "assets/characters/riptide/ref.png",
+      "voice": "am_adam"
     }
   ],
   "plot_state": {
-    "active_threads": ["who keeps stealing the cheese"],
-    "last_cliffhanger": "Who left the peel?",
-    "episode_log": ["ep_0006: cheese goes missing"]
+    "active_threads": ["the race for the Sewer Crown is dead even"],
+    "last_cliffhanger": null,
+    "episode_log": []
   }
 }
 ```
@@ -401,7 +423,7 @@ Each module: **Purpose · Input · Output · Key libs · Done-when.** All read c
 
 **`schemas.py`** — Purpose: pydantic models `SeriesBible`, `Episode`, `Scene`, `Hook`, `Music`, `Caption`. Done-when: `Episode.model_validate_json()` accepts the example above and rejects malformed input.
 
-**`script_gen.py`** — Purpose: one-line prompt (or "continue") + series bible → validated `episode.json`. Input: `series_id`, optional `prompt`. Output: `episodes/<id>/episode.json`. Key libs: `anthropic` (Opus 4.8, `effort: medium`, structured output via tool_use/`output_config.format` against the `Episode` JSON schema; cache the bible). Notes: enforce frame-1 hook, ≥62s total (sum scene durations + hook), per-scene `mood`+`intensity`, loopable `cliffhanger_text`, keyword-led `caption.description`. After generating, update bible `plot_state`. Done-when: produces a schema-valid episode whose durations sum ≥ `min_duration_sec`.
+**`script_gen.py`** — Purpose: one-line prompt (or "continue") + series bible → validated `episode.json`. Input: `series_id`, optional `prompt`. Output: `episodes/<id>/episode.json`. Key libs: `anthropic` (Opus 4.8, structured output via `output_config.format` = `{type: json_schema, schema: Episode.model_json_schema()}` with `output_config.effort` from `settings.llm.effort`; the series bible is the cached system prefix). Notes: the bible's creative brief — `premise`/`setting`/`tone`/`episode_format` + per-character `personality` — is injected so each series writes structurally distinct episodes; scene `image_prompt`s name characters and describe the shot only (appearance_tokens + style_anchor are prepended at render in M2, so don't restate them). Enforce frame-1 hook, ≥62s total (sum scene durations + hook), per-scene `mood`+`intensity`, loopable `cliffhanger_text`, keyword-led `caption.description`; `episode_id`/`series_id` are set from the orchestrator, not the model. After generating, update bible `plot_state` (`last_cliffhanger` + `episode_log`). Done-when: produces a schema-valid episode whose durations sum ≥ `min_duration_sec`.
 
 **`images.py`** — Purpose: render one keyframe per scene with character consistency. Input: `episode.json` + bible. Output: `images/scene_NN.png` (1080×1920). Key libs: mflux (FLUX-schnell) **or** ComfyUI API. Notes: prepend each scene's `image_prompt` with the character `appearance_tokens` + `style_anchor`; for consistency use a trained character LoRA (commercial) or FLUX-Kontext reference (prototype). Include `ken_burns(img, move, duration) -> clip` helper using ffmpeg `zoompan`. Done-when: N portrait PNGs, visually consistent character across scenes.
 
@@ -417,7 +439,7 @@ Each module: **Purpose · Input · Output · Key libs · Done-when.** All read c
 
 **`qc.py`** — Purpose: pass/fail gate. Checks: duration ≥ min; all scene images present; captions.ass non-empty & aligned; loudness ≈ −14 LUFS; resolution/fps/codec correct; (optional) character-consistency score (embedding similarity vs reference). Output: `qc_report` (dict) shown in UI. Done-when: returns pass + itemized report, fails loudly on any miss.
 
-**`orchestrator.py`** — Purpose: run stages 1–8 for an episode, resumable. Input: `--series`, `--prompt`/`--continue`, `--force`. Behavior: create `episodes/<id>/`, run each stage, update `state.json`, skip done stages. Done-when: `uv run python -m src.pipeline.orchestrator --series fridge-detectives --prompt "walnut slips on a banana peel"` yields `final.mp4` + passing QC.
+**`orchestrator.py`** — Purpose: run stages 1–8 for an episode, resumable. Input: `--series`, `--prompt`/`--continue`, `--force`. Behavior: create `episodes/<id>/`, run each stage, update `state.json`, skip done stages. Done-when: `uv run python -m src.pipeline.orchestrator --series sewer-surfers --prompt "Riptide tries to out-run Circuit's new turbo fins"` yields `final.mp4` + passing QC.
 
 **`ui/app.py` (Streamlit)** — Purpose: review/approve. Shows: episode script (editable), image gallery with **🔄 re-roll per image**, the `final.mp4` player, the QC report, the auto-caption. Buttons: **Re-roll image**, **Re-render**, **Approve → ready_to_post**, **Reject (note)**. On approve → calls `upload/tiktok_stub.py`. Done-when: you can generate → review → approve a video end-to-end from the browser.
 
@@ -434,14 +456,14 @@ Build in order. After each milestone: run **Test**, confirm **Expected**, then *
 ---
 
 **M0 — Skeleton**
-- **Build:** project structure (§7), `config.py`, `schemas.py` (§8 models), `config/settings.yaml`, placeholder bible `config/series/fridge-detectives.json`, `.env.example`, `.gitignore`, `scripts/prefetch_models.py`, `pyproject.toml`/`requirements.txt`. Empty stage modules with signatures.
+- **Build:** project structure (§7), `config.py`, `schemas.py` (§8 models), `config/settings.yaml`, a starter bible `config/series/sewer-surfers.json`, `.env.example`, `.gitignore`, `scripts/prefetch_models.py`, `pyproject.toml`/`requirements.txt`. Empty stage modules with signatures.
 - **Test:** `python -c "import torch; print(torch.backends.mps.is_available())"` and validate the §8 example episode against `schemas.Episode`.
 - **Expected:** MPS prints `True`; the example `episode.json` validates; the directory tree matches §7.
 - **🛑 Checkpoint:** `git commit -m "M0: skeleton + schemas"`. Stop.
 
 **M1 — Script** *(needs `ANTHROPIC_API_KEY`)*
 - **Build:** `script_gen.py` — Opus 4.8, structured output against the `Episode` schema, reads the bible (cached), updates `plot_state`.
-- **Test:** `uv run python -m src.pipeline.orchestrator --series fridge-detectives --prompt "walnut slips on a banana peel" --until script`
+- **Test:** `uv run python -m src.pipeline.orchestrator --series sewer-surfers --prompt "Riptide tries to out-run Circuit's new turbo fins" --until script`
 - **Expected:** `episodes/<id>/episode.json` exists, schema-valid, frame-1 hook + per-scene `mood`/`intensity` + loopable `cliffhanger_text` + keyword-led caption, and hook + scene durations sum ≥ 62s.
 - **🛑 Checkpoint:** commit `"M1: script gen"`. Stop.
 
@@ -517,7 +539,7 @@ Goal: run the factory across **N accounts/niches** from one machine to reach fol
 
 **MA0 — Schemas + config (no behavior change yet)**
 - **Build:** in `schemas.py` add `Product` (`product_id`, `name`, `affiliate_link`, `aup_usd`, `commission_rate`, `brand`, `category`, `demo_notes`, `image_refs: list[str]`, `key_features: list[str]`, `disclosure_required: bool = True`), `CTA` (`text`, `appears_after_scene_id`, `affiliate_link`), `ProductSlot` (`product_id`, `presenter_character`, `integration_note`). Add **optional, default-valued** fields: `Scene.scene_type: Literal["story","product_demo","product_broll","cta"] = "story"`, `Scene.product_id: str|None = None`; `Caption.affiliate_disclosure`, `Caption.showcase_product_id`, `Caption.cta_text` (all `|None=None`); `Episode.mode: Literal["story","affiliate"] = "story"`, `Episode.product: Product|None`, `Episode.cta: CTA|None`; `SeriesBible.product_slots: list[ProductSlot] = []`. In `config.py` add `AffiliateConfig` + `affiliate` field on `Settings`; add the `affiliate:` block to `settings.yaml` (`enabled: false`, `kalodata_export_path`, `product_assets: assets/products`, `min_aup_usd: 80`, `max_aup_usd: 250`, `min_commission_rate: 0.30`, `formats: [faceless_ugc, avatar_presenter]`, `default_format: faceless_ugc`, `disclosure_tag: "#ad"`). Add dirs `assets/products/`, `assets/affiliate/`.
-- **Test:** existing `fridge-detectives.json` and the §8 example episode still validate; a hand-written `mode:"affiliate"` episode with a `product` also validates; old `settings.yaml` still loads.
+- **Test:** existing `sewer-surfers.json` and the §8 example episode still validate; a hand-written `mode:"affiliate"` episode with a `product` also validates; old `settings.yaml` still loads.
 - **🛑 Checkpoint:** commit `"MA0: affiliate schemas + config"`. Stop.
 
 **MA1 — Sourcing reader (NOT a scraper — risk node #1)**
@@ -572,11 +594,11 @@ Goal: run the factory across **N accounts/niches** from one machine to reach fol
 ```bash
 source .venv/bin/activate
 # Generate one episode end-to-end
-uv run python -m src.pipeline.orchestrator --series fridge-detectives --prompt "walnut slips on a banana peel"
+uv run python -m src.pipeline.orchestrator --series sewer-surfers --prompt "Riptide tries to out-run Circuit's new turbo fins"
 # Continue the plot from the last cliffhanger
-uv run python -m src.pipeline.orchestrator --series fridge-detectives --continue
+uv run python -m src.pipeline.orchestrator --series sewer-surfers --continue
 # Force re-run a stage
-uv run python -m src.pipeline.orchestrator --series fridge-detectives --episode ep_0007 --force images
+uv run python -m src.pipeline.orchestrator --series sewer-surfers --episode ep_0007 --force images
 # Review UI
 uv run streamlit run src/ui/app.py
 # (If using ComfyUI) start it first in another terminal:
@@ -584,7 +606,7 @@ python models/ComfyUI/main.py --listen 127.0.0.1 --port 8188
 
 # --- Phase 0 scale-out: multi-account fleet (M10) ---
 # Generate the day's episodes for one account, or the whole fleet overnight
-uv run python scripts/run_fleet.py --account walnut-noir
+uv run python scripts/run_fleet.py --account sewer-surfers-main
 caffeinate -i uv run python scripts/run_fleet.py --all
 
 # --- Phase 1/2: affiliate mode (MA0+) ---

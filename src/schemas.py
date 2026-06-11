@@ -96,7 +96,32 @@ class PlotState(BaseModel):
     episode_log: list[str] = Field(default_factory=list)
 
 
+class SeasonArc(BaseModel):
+    """A planned, multi-episode season trajectory so each episode can advance an
+    overarching story rather than being a standalone. Optional — series that want
+    pure episodic content can omit it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    total_episodes: int = Field(gt=0)
+    synopsis: str  # the overarching shape: rising action → climax → resolution
+    finale: str  # what the final episode(s) deliver
+    episode_purposes: list[str] = Field(default_factory=list)  # palette of episode types to vary across the season
+    pacing_notes: str | None = None  # how to space tentpole events, build anticipation, etc.
+
+
 class SeriesBible(BaseModel):
+    """Per-series continuity + creative brief. One JSON file per series under
+    `config/series/<series_id>.json`; the pipeline is series-agnostic and loads
+    whichever bible `--series` names, so adding a series is config, not code.
+
+    The optional fields below are the per-series creative brief fed into the M1
+    script prompt — they're how two series (a detective mystery vs. a sewer race)
+    produce structurally different episodes from the same `Episode` schema. All
+    are optional/defaulted so older bibles and the M0 checkpoint still validate.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     series_id: str
@@ -104,3 +129,11 @@ class SeriesBible(BaseModel):
     style_anchor: str
     characters: list[Character] = Field(min_length=1)
     plot_state: PlotState = Field(default_factory=PlotState)
+
+    # Per-series creative brief (optional, additive — drives M1 script_gen).
+    display_name: str | None = None  # human label, e.g. "Sewer Surfers"
+    logline: str | None = None  # one-sentence pitch
+    setting: str | None = None  # the world / where episodes take place
+    episode_format: str | None = None  # how an episode of THIS series is structured
+    tone: str | None = None  # comedic / noir / high-energy, etc.
+    arc: SeasonArc | None = None  # planned season-long trajectory (None = purely episodic)

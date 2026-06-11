@@ -13,34 +13,34 @@ from src.schemas import Episode
 EXAMPLE_EPISODE = """
 {
   "episode_id": "ep_0007",
-  "series_id": "fridge-detectives",
-  "title": "The Banana Peel Betrayal",
-  "hook_text": "He never saw it coming.",
+  "series_id": "sewer-surfers",
+  "title": "The Spillway Showdown",
+  "hook_text": "He hit the spillway at full speed.",
   "hook": {
     "type": "video",
-    "prompt": "cartoon walnut detective in a fedora slips on a banana peel, exaggerated slapstick fall, dynamic camera, 3D Pixar style",
+    "prompt": "surfer on a neon hydro-board rockets off a sewer spillway, huge spray, exaggerated wipeout, dynamic camera, bold anime ink-outline style",
     "library_clip": null,
     "duration_sec": 3.5,
-    "sfx": "comedic whoosh then thud"
+    "sfx": "rushing water then a comedic splash"
   },
-  "characters_present": ["walnut", "banana"],
+  "characters_present": ["circuit", "riptide"],
   "scenes": [
     {
       "id": 1,
-      "image_prompt": "<walnut appearance_tokens> sitting in a dim fridge office, neon light, <style_anchor>",
+      "image_prompt": "<circuit appearance_tokens> crouched on a glowing hydro-board in a dim flood tunnel, neon light on wet concrete, <style_anchor>",
       "motion": { "type": "ken_burns", "move": "push_in", "duration_sec": 6 },
-      "narration_text": "Detective Walnut thought it was an ordinary Tuesday.",
+      "narration_text": "Circuit had run the numbers a thousand times. Tonight, the math would finally beat the madman.",
       "top_text": null,
-      "mood": "noir-calm",
+      "mood": "tense-calm",
       "intensity": 0.3,
       "duration_sec": 6
     }
   ],
-  "cliffhanger_text": "Who left the peel? Part 8 tomorrow.",
-  "music": { "global_mood": "noir comedic tension", "bpm_hint": 90 },
+  "cliffhanger_text": "Who takes the next heat? Crown's still up for grabs.",
+  "music": { "global_mood": "high-energy underground race tension", "bpm_hint": 128 },
   "caption": {
-    "description": "Detective Walnut's worst Tuesday yet 🥜 #aianimation #cartoon #brainrot",
-    "hashtags": ["#aianimation", "#cartoon", "#fridgedetectives"],
+    "description": "Gadgets vs. guts in the sewer race for the crown 🌊 #aianimation #cartoon #brainrot",
+    "hashtags": ["#aianimation", "#cartoon", "#sewersurfers"],
     "ai_label": true
   },
   "target_duration_sec": 72
@@ -65,7 +65,7 @@ def main() -> None:
     settings = load_settings()
     print(f"Settings load: image={settings.image.backend}/{settings.image.model}, video={settings.video.width}x{settings.video.height}@{settings.video.fps}")
 
-    bible = load_series_bible("fridge-detectives")
+    bible = load_series_bible("sewer-surfers")
     print(f"Series bible loads: {bible.series_id} — {len(bible.characters)} characters")
 
     print("\nM0 checkpoint: ALL PASS")

@@ -1,0 +1,47 @@
+{
+  "series_id": "sewer-surfers",
+  "display_name": "Sewer Surfers",
+  "logline": "Two rival riders build custom hydro-boards and battle across a season for the Sewer Crown.",
+  "premise": "In the neon-lit waterways beneath the city, underground surfers design and build their own hydro-boards to ride the storm drains. Across one season, two rivals — a gadget-obsessed engineer and a fearless daredevil — trade wins, defeats, and new strategies in a season-long duel that builds toward the legendary Sewer Crown race.",
+  "setting": "A vast underground world of storm drains, flood tunnels, and sluice gates beneath a rain-soaked city. Rushing water, glowing algae, graffiti-tagged concrete, and shafts of streetlight through the grates above.",
+  "style_anchor": "stylized 2D anime aesthetic, bold clean ink outlines, cel-shaded figures with expressive hand-drawn character animation, dynamic speed lines and motion smears, vibrant neon palette over slightly painterly backgrounds, glossy wet highlights, cinematic",
+  "tone": "high-energy sports-anime rivalry with comedic beats and real emotional stakes",
+  "episode_format": "Each episode is a ~60-75s self-contained beat that ALSO advances the season arc. Always: a frame-1 hook, a clear stakes setup, the Circuit-vs-Riptide contrast (gadgets vs. raw nerve) where relevant, and a loopable cliffhanger that pulls toward the next episode and the looming Sewer Crown. NOT every episode is a race — vary the purpose per `arc.episode_purposes` (a new strategy, a defeat, a character or relationship beat, a training run, rising buildup) so races feel like special, anticipated events.",
+  "characters": [
+    {
+      "name": "circuit",
+      "appearance_tokens": "a wiry young inventor in a patched neoprene wetsuit studded with gadgets and glowing LED strips, big round goggles pushed up on messy hair, a utility belt of tools, board bristling with sensors and fins",
+      "personality": "brainy, calculating, over-prepared; wins by out-engineering the course with gadgets, telemetry, and clever lines",
+      "reference_image": "assets/characters/circuit/ref.png",
+      "voice": "am_michael"
+    },
+    {
+      "name": "riptide",
+      "appearance_tokens": "a broad-shouldered daredevil in a battle-scarred neon wetsuit, shark-fin mohawk, fearless grin, fingerless gloves, a scuffed minimalist board built for raw speed",
+      "personality": "reckless, fearless, rides on pure instinct and adrenaline; takes insane lines no sane surfer would attempt",
+      "reference_image": "assets/characters/riptide/ref.png",
+      "voice": "am_adam"
+    }
+  ],
+  "arc": {
+    "total_episodes": 20,
+    "synopsis": "A 20-episode season-long rivalry between Circuit and Riptide for the Sewer Crown. Episode 1 throws viewers straight into a high-stakes race. From there the season is rising action — alternating wins and defeats, new boards and strategies, qualifying heats, and deepening rivalry-into-respect — escalating tension toward the climactic Sewer Crown race.",
+    "finale": "Episode 20 IS the Sewer Crown race: the season's biggest event, it reveals the winner and closes on a victory lap and the resolution of the Circuit-Riptide relationship.",
+    "episode_purposes": [
+      "a high-stakes race or qualifying heat (a special, spaced-out tentpole event)",
+      "inventing, building, or testing a new board, gadget, or strategy",
+      "a defeat or setback that forces a rethink",
+      "a character-development or backstory beat (why they ride)",
+      "deepening, testing, or fracturing the Circuit-Riptide relationship",
+      "a training montage or risky trial run",
+      "a rival crew or external threat to the scene",
+      "rising-tension buildup and stakes-raising toward an upcoming race"
+    ],
+    "pacing_notes": "Open the season (ep 1) on a high-stakes race to hook viewers. After that, DON'T make every episode a race — space races out as anticipated tentpole events and fill between them with strategy, character, and relationship episodes. Every episode plants or pays off a seed for the Sewer Crown finale. As the episode number approaches 20, raise the stakes; episode 20 delivers the Crown race, the winner, and a victory lap."
+  },
+  "plot_state": {
+    "active_threads": ["the race for the Sewer Crown is dead even between Circuit and Riptide"],
+    "last_cliffhanger": "So who actually crossed first — Circuit's turbo fins, or Riptide's nerve? The replay's loading... and you're not gonna believe it.",
+    "episode_log": ["ep_0001: Turbo Fins vs. Pure Nerve"]
+  }
+}

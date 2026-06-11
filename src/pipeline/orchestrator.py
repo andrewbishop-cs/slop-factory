@@ -1,9 +1,9 @@
 """Orchestrator — runs stages 1–8 for an episode, resumable via state.json.
 
-Usage (BUILD.md §11):
-    uv run python -m src.pipeline.orchestrator --series fridge-detectives --prompt "..."
-    uv run python -m src.pipeline.orchestrator --series fridge-detectives --continue
-    uv run python -m src.pipeline.orchestrator --series fridge-detectives --episode ep_0007 --force images
+Usage (BUILD.md §11) — `--series` names any bible under config/series/<id>.json:
+    uv run python -m src.pipeline.orchestrator --series sewer-surfers --prompt "..."
+    uv run python -m src.pipeline.orchestrator --series sewer-surfers --continue
+    uv run python -m src.pipeline.orchestrator --series sewer-surfers --episode ep_0007 --force images
 """
 
 from __future__ import annotations
@@ -104,7 +104,7 @@ def run_stage(stage, settings, bible, episode_dir, prompt):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the episode pipeline.")
-    parser.add_argument("--series", required=True, help="series id, e.g. fridge-detectives")
+    parser.add_argument("--series", required=True, help="series id (a bible under config/series/<id>.json), e.g. sewer-surfers")
     parser.add_argument("--prompt", help="one-line episode prompt")
     parser.add_argument("--continue", dest="continue_", action="store_true", help="continue from the last cliffhanger")
     parser.add_argument("--episode", help="existing episode id to resume, e.g. ep_0007")
