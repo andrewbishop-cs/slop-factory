@@ -12,7 +12,7 @@
 
 This file is the implementation plan. Hand it to Cursor and build **one milestone at a time** with a checkpoint after each.
 
-**Current state (read before prompting Cursor):** environment setup is **done** (§3 brew deps incl. `ffmpeg`/`espeak-ng`, the `.venv` with the §4 packages pinned into `requirements.txt`/`pyproject.toml`; MPS verified `True`) and **M0 is complete and committed** — `src/schemas.py`, `src/config.py`, `src/pipeline/orchestrator.py` (resumable), all 8 stage modules as `NotImplementedError` stubs, `config/settings.yaml`, the `sewer-surfers` series bible, and `scripts/m0_check.py` (passes `ALL PASS`). Known gap: `stable-audio-tools` (M6 music) won't install on Python 3.12 — deferred, use the ACE-Step repo route at M6. **Next milestone: M1 (`script_gen`).** Build M1→M9 in order, one milestone per commit.
+**Current state (read before prompting Cursor):** environment setup is **done** (§3 brew deps incl. `ffmpeg`/`espeak-ng`, the `.venv` with the §4 packages pinned into `requirements.txt`/`pyproject.toml`; MPS verified `True`) and **M0–M2 are complete**: `src/schemas.py`, `src/config.py`, `src/pipeline/orchestrator.py` (resumable), `config/settings.yaml`, the `sewer-surfers` series bible (20-episode season arc), `scripts/m0_check.py` (`ALL PASS`); **M1** `script_gen.py` (Anthropic structured output, per-series creative brief, 4–7s shot pacing, idempotent plot-state); **M2** `images.py` (mflux/FLUX-schnell, prompt anchoring + stable per-character seed + opt-in LoRA hook) and the `ken_burns()` ffmpeg helper. Stages tts/captions/music/hook/assemble/qc are still `NotImplementedError` stubs. Known gap: `stable-audio-tools` (M6 music) won't install on Python 3.12 — deferred, use the ACE-Step repo route at M6. **Next milestone: M3 (`tts`).** Build M3→M9 in order, one milestone per commit.
 
 **Setup in Cursor:**
 1. Add `BUILD.md` to the Cursor chat as context (optionally also `research/15-v0-spec.md` for the "why").
@@ -187,17 +187,17 @@ python main.py --listen 127.0.0.1 --port 8188   # headless API; pipeline POSTs w
 
 ## 5. Model downloads — programmatic, not manual
 
-**Short answer: you do not download models by hand.** There are two mechanisms, and the default stack needs zero manual steps and no token.
+**Short answer: you do not download models by hand.** There are two mechanisms. The one manual prerequisite is a single HF gate click + `HF_TOKEN` for FLUX-schnell (see the table below) — everything else needs zero manual steps.
 
-**(a) Lazy auto-download (default behavior).** Each library fetches its weights from Hugging Face on first use and caches them in `~/.cache/huggingface` — `mflux`→FLUX, `kokoro`→Kokoro, `whisperx`→its alignment model, diffusers `LTXPipeline.from_pretrained(...)`→LTX, ACE-Step→its checkpoint. The first run of each stage is slow (one-time download); every run after is instant. Nothing for you to do.
+**(a) Lazy auto-download (default behavior).** Each library fetches its weights from Hugging Face on first use and caches them in `~/.cache/huggingface` — `mflux`→FLUX, `kokoro`→Kokoro, `whisperx`→its alignment model, diffusers `LTXPipeline.from_pretrained(...)`→LTX, ACE-Step→its checkpoint. The first run of each stage is slow (one-time download); every run after is instant. Nothing for you to do — except FLUX-schnell, which is gated (one-time "Agree" + `HF_TOKEN` in `.env`, which `src/config.py` auto-loads).
 
 **(b) Eager prefetch (recommended — one command).** Run a small `scripts/prefetch_models.py` once to pull everything up front, so the first real pipeline run isn't waiting on downloads (and so it works offline afterward). Uses `huggingface_hub.snapshot_download`.
 
-**The whole commercial-safe DEFAULT stack is UNGATED → fully automatic, no HF token, no clicks:**
+**Default-stack model access (mostly automatic; FLUX-schnell now needs a one-time gate click):**
 
 | Model (default) | HF repo | Gated? | Token / manual step? |
 |---|---|---|---|
-| FLUX.1-schnell (images) | `black-forest-labs/FLUX.1-schnell` | No | None |
+| FLUX.1-schnell (images) | `black-forest-labs/FLUX.1-schnell` | **Yes** (Apache-2.0 but access-walled) | Click "Agree to access" once on the HF page, set `HF_TOKEN` in `.env` |
 | LTX-Video (hook) | `Lightricks/LTX-Video` | No | None |
 | Kokoro-82M (TTS) | `hexgrad/Kokoro-82M` | No | None |
 | ACE-Step (music) | `ACE-Step/ACE-Step-v1-3.5B` | No | None |
@@ -211,7 +211,7 @@ python main.py --listen 127.0.0.1 --port 8188   # headless API; pipeline POSTs w
 | Stable Audio Open | `stabilityai/stable-audio-open-1.0` | Alt music model | Same one-time click + `HF_TOKEN` |
 | SDXL / Pony V6 (option B) | HF or CivitAI | Fullest consistency toolkit | CivitAI: free API key or direct URL (scriptable); HF SDXL is ungated |
 
-So: **the only ever-manual action is clicking "Agree to access" once on a gated model's web page** — and you only hit that if you opt into FLUX-dev/Kontext or Stable Audio Open. The defaults skip it entirely.
+So: **the only ever-manual action is clicking "Agree to access" once on a gated model's web page + setting `HF_TOKEN`.** You hit this for FLUX-schnell (the default image model — BFL access-walled it) and for any opt-in upgrade (FLUX-dev/Kontext, Stable Audio Open). Everything else is automatic.
 
 **`scripts/prefetch_models.py` (programmatic prefetch):**
 ```python
@@ -323,7 +323,7 @@ slop-factory/
 ```yaml
 paths: { episodes: episodes, ready_to_post: ready_to_post, models: models }
 video: { width: 1080, height: 1920, fps: 30, target_duration_sec: 72, min_duration_sec: 62, min_shot_sec: 4, max_shot_sec: 7 }  # per-shot pacing: vary 4-7s for retention
-image: { backend: mflux, model: flux-schnell, steps: 4 }    # or backend: comfyui
+image: { backend: mflux, model: flux-schnell, steps: 4, guidance: 3.5, quantize: null, lora_path: null, lora_scale: 1.0 }  # quantize 4/8 to save RAM; lora_path = trained char/style LoRA for consistency
 hook:  { backend: ltx, max_seconds: 4, allow_library_fallback: true }
 tts:   { backend: kokoro }
 music: { backend: ace-step, gain_under_voice: 0.18 }
@@ -425,7 +425,7 @@ Each module: **Purpose · Input · Output · Key libs · Done-when.** All read c
 
 **`script_gen.py`** — Purpose: one-line prompt (or "continue") + series bible → validated `episode.json`. Input: `series_id`, optional `prompt`. Output: `episodes/<id>/episode.json`. Key libs: `anthropic` (Opus 4.8, structured output via `output_config.format` = `{type: json_schema, schema: Episode.model_json_schema()}` with `output_config.effort` from `settings.llm.effort`; the series bible is the cached system prefix). Notes: the bible's creative brief — `premise`/`setting`/`tone`/`episode_format` + per-character `personality` — is injected so each series writes structurally distinct episodes; scene `image_prompt`s name characters and describe the shot only (appearance_tokens + style_anchor are prepended at render in M2, so don't restate them). Enforce frame-1 hook, ≥62s total (sum scene durations + hook), per-scene `mood`+`intensity`, loopable `cliffhanger_text`, keyword-led `caption.description`; `episode_id`/`series_id` are set from the orchestrator, not the model. **Shot pacing for retention:** each scene is one held image, so the prompt asks for varied shot lengths in `video.min_shot_sec`..`max_shot_sec` (4–7s; quick cuts on punchy dialogue, longer on emotional/establishing beats, 7s hard ceiling) → ~12 short shots for a 72s ep, cutting to the speaker in dialogue rather than lingering; scenes over the max get a non-fatal warning. After generating, update bible `plot_state` (`last_cliffhanger` + `episode_log`). Done-when: produces a schema-valid episode whose durations sum ≥ `min_duration_sec`.
 
-**`images.py`** — Purpose: render one keyframe per scene with character consistency. Input: `episode.json` + bible. Output: `images/scene_NN.png` (1080×1920). Key libs: mflux (FLUX-schnell) **or** ComfyUI API. Notes: prepend each scene's `image_prompt` with the character `appearance_tokens` + `style_anchor`; for consistency use a trained character LoRA (commercial) or FLUX-Kontext reference (prototype). Include `ken_burns(img, move, duration) -> clip` helper using ffmpeg `zoompan`. Done-when: N portrait PNGs, visually consistent character across scenes.
+**`images.py`** — Purpose: render one keyframe per scene with character consistency. Input: `episode.json` + bible. Output: `images/scene_NN.png` (1080×1920). Key libs: mflux (`Flux1(ModelConfig.from_name("schnell")).generate_image(...)`) **or** ComfyUI API. **Character identity is held by three layers (weakest→strongest):** (1) **prompt anchoring** — for each scene, detect which bible characters are named in `image_prompt` and prefix the prompt with their exact `appearance_tokens` + the series `style_anchor`, so the model re-describes the same look/style every shot; (2) **stable per-character seed** — seed = `sha256(series_id : first-character-in-shot : scene_id)`, so a character stays in one visual family and re-runs are reproducible; (3) **trained character LoRA** (opt-in `image.lora_path`/`lora_scale`, passed to `Flux1(lora_paths=…)`) — the production lock; FLUX-Kontext / img2img reference is the non-commercial prototype alternative. Render at dims rounded up to a multiple of 16 (1080→1088), then center-crop to the exact video size. Per-scene PNGs are skipped if they already exist (intra-stage resume for long renders). Include `ken_burns(img_path, move, duration_sec, out, *, fps, width, height) -> clip` helper using ffmpeg `zoompan` (2× pre-scale to cut jitter; comma-free expressions so it's argv-safe). Done-when: N portrait PNGs, visually consistent character across scenes.
 
 **`hook.py`** — Purpose: produce the 3–4s hook clip. Input: `episode.hook`. Output: `hook.mp4` (portrait, ≤4s). Key libs: diffusers `LTXPipeline` (MPS) or ComfyUI; fallback to a clip from `assets/hook_library/` when `type:"library"` or LTX fails. Notes: cap seconds; expect slowness (~5–12 min); stylized/cartoon prompts; pick-best loop optional. Done-when: a portrait ≤4s clip exists (generated or library).
 
@@ -468,8 +468,8 @@ Build in order. After each milestone: run **Test**, confirm **Expected**, then *
 - **🛑 Checkpoint:** commit `"M1: script gen"`. Stop.
 
 **M2 — Images**
-- **Build:** `images.py` (mflux/FLUX-schnell) + `ken_burns()` ffmpeg helper.
-- **Test:** run the images stage on the M1 episode.
+- **Build:** `images.py` (mflux/FLUX-schnell) with prompt-anchoring + stable per-character seed (+ opt-in LoRA hook) + `ken_burns()` ffmpeg helper.
+- **Test:** `uv run python -m src.pipeline.orchestrator --series sewer-surfers --episode <id> --force images --until images` (first run downloads FLUX-schnell, ~30GB, one-time).
 - **Expected:** one 1080×1920 PNG per scene in `images/`; the character is recognizably consistent across scenes (eyeball it).
 - **🛑 Checkpoint:** commit `"M2: image gen + ken burns"`. Stop.
 

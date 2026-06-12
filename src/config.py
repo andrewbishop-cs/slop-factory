@@ -44,6 +44,11 @@ class ImageConfig(BaseModel):
     backend: str = "mflux"
     model: str = "flux-schnell"
     steps: int = 4
+    quantize: int | None = None  # 4 or 8 to shrink memory footprint; None = full precision
+    guidance: float = 3.5  # ignored by FLUX-schnell (guidance-distilled)
+    # Character-consistency lever (optional, layered on top of prompt anchoring):
+    lora_path: str | None = None  # a trained character/style LoRA applied to every scene
+    lora_scale: float = 1.0
 
 
 class HookConfig(BaseModel):

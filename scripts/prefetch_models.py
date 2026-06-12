@@ -1,8 +1,8 @@
 """One-command programmatic model prefetch (BUILD.md §5).
 
-All default-stack models are ungated — no HF token needed. Gated optional
-upgrades are commented out; enable them only after clicking "Agree" on the
-repo's HF page and setting HF_TOKEN in .env.
+`FLUX.1-schnell` is gated on Hugging Face (Apache-2.0 license, but access-walled):
+click "Agree to access" once on its HF page and set HF_TOKEN in .env. The other
+default-stack models are ungated. Optional upgrades stay commented out.
 
 Run once: uv run python scripts/prefetch_models.py
 """
@@ -15,12 +15,12 @@ from huggingface_hub import snapshot_download
 load_dotenv()
 
 UNGATED = [
-    "black-forest-labs/FLUX.1-schnell",
     "Lightricks/LTX-Video",
     "hexgrad/Kokoro-82M",
     "ACE-Step/ACE-Step-v1-3.5B",
 ]
-GATED = [  # only if you opt in — needs HF_TOKEN + a one-time license click on each repo's HF page
+GATED = [  # needs HF_TOKEN + a one-time license click on each repo's HF page
+    "black-forest-labs/FLUX.1-schnell",
     # "black-forest-labs/FLUX.1-Kontext-dev",
     # "stabilityai/stable-audio-open-1.0",
 ]
