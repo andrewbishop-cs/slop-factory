@@ -62,8 +62,9 @@ class TTSConfig(BaseModel):
     backend: str = "kokoro"
     # Kokoro voice for third-person narration; quoted character dialogue uses that
     # character's own `voice` from the bible (falling back to this when unset).
-    narrator_voice: str = "af_heart"
-    speed: float = 1.0
+    narrator_voice: str = "am_onyx"  # deep, theatrical — dramatic narration
+    narrator_speed: float = 1.1  # punchy but weighty
+    speed: float = 1.2  # character dialogue: faster = younger/more energetic
 
 
 class MusicConfig(BaseModel):

@@ -18,7 +18,7 @@ import soundfile as sf
 import torch
 from kokoro import KPipeline
 
-from src.config import Settings
+from src.config import Settings, TTSConfig
 from src.schemas import Character, Episode, Scene, SeriesBible
 
 SAMPLE_RATE = 24_000  # Kokoro-82M always renders at 24 kHz
@@ -37,14 +37,14 @@ def _named_characters(text: str, bible: SeriesBible) -> list[Character]:
     return [c for c in bible.characters if re.search(rf"\b{re.escape(c.name)}\b", text, re.IGNORECASE)]
 
 
-def _voice_for_scene(scene: Scene, bible: SeriesBible, narrator_voice: str) -> tuple[str, str]:
-    """Pick (voice_id, speaker_label) for a scene: the speaking character for an
-    unambiguous quoted line, else the narrator."""
+def _voice_for_scene(scene: Scene, bible: SeriesBible, tts: TTSConfig) -> tuple[str, float, str]:
+    """Pick (voice_id, speed, speaker_label) for a scene: the speaking character
+    (energetic dialogue speed) for an unambiguous quoted line, else the dramatic narrator."""
     if _is_dialogue(scene.narration_text):
         named = _named_characters(scene.image_prompt, bible)
         if len(named) == 1 and named[0].voice:
-            return named[0].voice, named[0].name
-    return narrator_voice, "narrator"
+            return named[0].voice, tts.speed, named[0].name
+    return tts.narrator_voice, tts.narrator_speed, "narrator"
 
 
 def _lang_code(voice: str) -> str:
@@ -74,9 +74,6 @@ def generate_narration(
     audio_dir = episode_dir / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
 
-    narrator_voice = settings.tts.narrator_voice
-    speed = settings.tts.speed
-
     pipelines: dict[str, KPipeline] = {}
     outputs: list[Path] = []
     for scene in episode.scenes:
@@ -91,12 +88,12 @@ def generate_narration(
             print(f"[{episode.episode_id}] tts scene {scene.id:02d}: exists, skipping")
             continue
 
-        voice, speaker = _voice_for_scene(scene, bible, narrator_voice)
+        voice, speed, speaker = _voice_for_scene(scene, bible, settings.tts)
         lang = _lang_code(voice)
         if lang not in pipelines:
             pipelines[lang] = KPipeline(lang_code=lang)
 
-        print(f"[{episode.episode_id}] tts scene {scene.id:02d}: rendering ({speaker} / {voice})")
+        print(f"[{episode.episode_id}] tts scene {scene.id:02d}: rendering ({speaker} / {voice} @ {speed}x)")
         audio = _synthesize(pipelines[lang], text, voice, speed)
         sf.write(str(out), audio, SAMPLE_RATE)
 
