@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 
 from src.config import Settings, load_series_bible, load_settings
-from src.pipeline import assemble, captions, hook, images, music, qc, script_gen, tts
+from src.pipeline import assemble, captions, hook, images, logging_setup, music, qc, script_gen, tts
 from src.schemas import Episode
 
 # Pipeline order (script first; assemble after all assets exist).
@@ -63,19 +63,27 @@ def run(
     episode_id = episode_id or next_episode_id(settings, series_id)
     episode_dir = settings.episodes_dir() / episode_id
     episode_dir.mkdir(parents=True, exist_ok=True)
+    logger = logging_setup.setup_episode_logging(episode_dir)
     state = load_state(episode_dir)
 
+    logger.info("episode %s (%s) — pipeline start", episode_id, series_id)
     for stage in STAGES:
         if state.get(stage) and stage not in force:
-            print(f"[{episode_id}] {stage}: done, skipping")
+            logger.info("%s: done, skipping", stage)
         else:
-            print(f"[{episode_id}] {stage}: running")
-            run_stage(stage, settings, bible, episode_dir, prompt)
+            logger.info("%s: running", stage)
+            try:
+                run_stage(stage, settings, bible, episode_dir, prompt)
+            except Exception:
+                logger.exception("%s: FAILED", stage)
+                raise
             state[stage] = True
             save_state(episode_dir, state)
+            logger.info("%s: done", stage)
         if stage == until:
             break
 
+    logger.info("episode %s — pipeline finished (through %s)", episode_id, until or STAGES[-1])
     return episode_dir
 
 
