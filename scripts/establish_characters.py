@@ -25,11 +25,13 @@ REF_WIDTH, REF_HEIGHT = 832, 1216
 
 
 def _reference_prompt(character: Character, bible: SeriesBible) -> str:
-    world = f"World: {bible.world_anchor.strip()} " if bible.world_anchor else ""
+    """Lead with the art style (diffusion weights early tokens most), then the character."""
+    world = f" World: {bible.world_anchor.strip()}" if bible.world_anchor else ""
     return (
-        f"Full-body character reference sheet of {character.name}: {character.appearance_tokens}. "
+        f"{bible.style_anchor}. "
+        f"In this exact style, a full-body character reference of {character.name}: {character.appearance_tokens}. "
         f"Neutral confident standing pose, facing camera, full figure in frame, clean flat studio "
-        f"background, even lighting, no text. {world}Art style: {bible.style_anchor}."
+        f"background, even lighting, no text.{world}"
     )
 
 

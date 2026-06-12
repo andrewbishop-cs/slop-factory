@@ -72,14 +72,14 @@ def _use_trigger(bible: SeriesBible) -> bool:
 
 
 def _build_prompt(scene: Scene, bible: SeriesBible, characters: list[Character], use_trigger: bool) -> str:
-    """Anchor the shot with character identity + the series world/style."""
+    """Anchor the shot, leading with the art style (diffusion weights early tokens most)."""
     parts: list[str] = []
     for c in characters:
         label = c.lora_trigger if (use_trigger and c.lora_trigger) else c.name
         parts.append(f"{label} ({c.appearance_tokens})")
     who = ("Characters — " + "; ".join(parts) + ". ") if parts else ""
-    world = f"World: {bible.world_anchor.strip()} " if bible.world_anchor else ""
-    return f"{who}{scene.image_prompt.strip()} {world}Art style: {bible.style_anchor}."
+    world = f" World: {bible.world_anchor.strip()}" if bible.world_anchor else ""
+    return f"{bible.style_anchor}. In this exact style: {who}{scene.image_prompt.strip()}{world}"
 
 
 def _scene_reference_paths(characters: list[Character], settings: Settings) -> list[str]:

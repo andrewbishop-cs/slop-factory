@@ -341,7 +341,7 @@ llm:   { model: claude-opus-4-8, effort: medium }
   "hook_text": "He hit the spillway at full speed.",
   "hook": {
     "type": "video",
-    "prompt": "surfer on a neon hydro-board rockets off a sewer spillway, huge spray, exaggerated wipeout, dynamic camera, polished Pixar-style 3D cartoon-realism",
+    "prompt": "cartoony anthropomorphic surfer on a neon hydro-board rockets off a sewer spillway, huge spray, exaggerated wipeout, dynamic camera, clean simple Super Mario-style 3D cartoon, smooth glossy surfaces, oversized head and big eyes, stubby limbs, non-realistic",
     "library_clip": null,
     "duration_sec": 3.5,
     "sfx": "rushing water then a comedic splash"
@@ -381,7 +381,7 @@ llm:   { model: claude-opus-4-8, effort: medium }
   "logline": "Two rival riders build custom hydro-boards and battle across a season for the Sewer Crown.",
   "premise": "Underground surfers design their own hydro-boards to ride the storm drains; two rivals trade wins and defeats across a season-long duel building toward the Sewer Crown race.",
   "setting": "A neon-lit underground world of storm drains and flood tunnels beneath a rain-soaked city.",
-  "style_anchor": "highly polished 3D cartoon-realism in the style of a modern Pixar feature: appealing expressive characters with soft rounded forms, subsurface-scattering skin/fur, PBR materials, cinematic lighting and glossy wet highlights, shallow depth of field, rich saturated color",
+  "style_anchor": "clean simple 3D cartoon style like the modern Super Mario Bros. Movie / Nintendo games: smooth simplified glossy toy-like surfaces, bold simple shapes, exaggerated NON-realistic proportions (oversized heads, very large eyes, small rounded bodies, stubby limbs), minimal surface texture (no realistic fur strands/pores), bright saturated colors, soft clean cinematic lighting — deliberately non-realistic cartoony anthropomorphic animals, never photorealistic",
   "tone": "high-energy Pixar-style sports rivalry with comedic beats and real stakes",
   "episode_format": "A ~60-75s self-contained beat that also advances the season arc: frame-1 hook, stakes setup, gadgets-vs-nerve contrast where relevant, loopable cliffhanger. NOT every episode is a race — vary purpose per arc.episode_purposes.",
   "arc": {

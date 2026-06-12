@@ -17,7 +17,7 @@ dependencies = [
     "pillow==11.3.0",
     "soundfile==0.14.0",
     "librosa==0.11.0",
-    # M2: images (mflux / FLUX-schnell)
+    # M2: images (mflux / FLUX.2-klein-4B)
     "mflux==0.18.0",
     # M3/M4: TTS + captions
     "kokoro==0.9.4",
@@ -34,6 +34,23 @@ dependencies = [
     # Deferred to M6; use the ACE-Step repo route (settings.yaml default) instead.
     # "stable-audio-tools",
 ]
+
+[tool.uv]
+# mflux 0.18 over-declares newer floors (transformers>=5, pillow>=12.1.1, huggingface-hub>=1.1.6)
+# than the verified, installed set. It reimplements its models in MLX (no `from transformers`
+# in the FLUX.2 code; transformers is used only for tokenizers) and runs on the installed
+# versions, which the rest of the stack (whisperx, etc.) also accepts. Pin them here so
+# `uv run`/`uv sync` resolve to the already-installed set instead of forcing an unvalidated
+# upgrade. Revisit per-package if a stage actually needs one of mflux's newer APIs.
+override-dependencies = [
+    "transformers==4.57.6",
+    "pillow==11.3.0",
+    "huggingface-hub==0.36.2",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["src", "src.pipeline", "src.upload", "src.ui"]
