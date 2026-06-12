@@ -24,8 +24,17 @@ REPOS = [
     # "stabilityai/stable-audio-open-1.0",
 ]
 
+# Pinned-revision repos: (repo_id, revision). M4 WhisperX align model auto-downloads via
+# torchaudio; M5 Ken Burns framing uses moondream2 at a pinned revision (see framing.py).
+PINNED_REPOS = [
+    ("vikhyatk/moondream2", "2025-06-21"),
+]
+
 token = os.environ.get("HF_TOKEN") or None
 for repo in REPOS:
     print("↓", repo)
     snapshot_download(repo_id=repo, token=token)  # → ~/.cache/huggingface
+for repo, revision in PINNED_REPOS:
+    print("↓", repo, f"@{revision}")
+    snapshot_download(repo_id=repo, revision=revision, token=token)
 print("All models cached.")
