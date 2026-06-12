@@ -18,7 +18,7 @@ EXAMPLE_EPISODE = """
   "hook_text": "He hit the spillway at full speed.",
   "hook": {
     "type": "video",
-    "prompt": "surfer on a neon hydro-board rockets off a sewer spillway, huge spray, exaggerated wipeout, dynamic camera, bold anime ink-outline style",
+    "prompt": "surfer on a neon hydro-board rockets off a sewer spillway, huge spray, exaggerated wipeout, dynamic camera, polished Pixar-style 3D cartoon-realism",
     "library_clip": null,
     "duration_sec": 3.5,
     "sfx": "rushing water then a comedic splash"

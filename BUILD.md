@@ -12,7 +12,7 @@
 
 This file is the implementation plan. Hand it to Cursor and build **one milestone at a time** with a checkpoint after each.
 
-**Current state (read before prompting Cursor):** environment setup is **done** (§3 brew deps incl. `ffmpeg`/`espeak-ng`, the `.venv` with the §4 packages pinned into `requirements.txt`/`pyproject.toml`; MPS verified `True`) and **M0–M2 are complete**: `src/schemas.py`, `src/config.py`, `src/pipeline/orchestrator.py` (resumable), `config/settings.yaml`, the `sewer-surfers` series bible (20-episode season arc), `scripts/m0_check.py` (`ALL PASS`); **M1** `script_gen.py` (Anthropic structured output, per-series creative brief, 4–7s shot pacing, idempotent plot-state); **M2** `images.py` (mflux/FLUX-schnell, prompt anchoring + stable per-character seed + opt-in LoRA hook) and the `ken_burns()` ffmpeg helper. Stages tts/captions/music/hook/assemble/qc are still `NotImplementedError` stubs. Known gap: `stable-audio-tools` (M6 music) won't install on Python 3.12 — deferred, use the ACE-Step repo route at M6. **Next milestone: M3 (`tts`).** Build M3→M9 in order, one milestone per commit.
+**Current state (read before prompting Cursor):** environment setup is **done** (§3 brew deps incl. `ffmpeg`/`espeak-ng`, the `.venv` with the §4 packages pinned into `requirements.txt`/`pyproject.toml`; MPS verified `True`) and **M0–M2 are complete**: `src/schemas.py`, `src/config.py`, `src/pipeline/orchestrator.py` (resumable), `config/settings.yaml`, the `sewer-surfers` series bible (20-episode season arc), `scripts/m0_check.py` (`ALL PASS`); **M1** `script_gen.py` (Anthropic structured output, per-series creative brief, 4–7s shot pacing, idempotent plot-state); **M2** `images.py` on **FLUX.2-klein-4B** (Apache-2.0) with the full consistency stack — prompt anchoring (`style_anchor` + `world_anchor`), multi-reference character conditioning (FLUX.2 edit path + `scripts/establish_characters.py`), and an opt-in trained cast-LoRA (`scripts/train_character_lora.py`) — plus the `ken_burns()` ffmpeg helper. Stages tts/captions/music/hook/assemble/qc are still `NotImplementedError` stubs. Known gap: `stable-audio-tools` (M6 music) won't install on Python 3.12 — deferred, use the ACE-Step repo route at M6. **Next milestone: M3 (`tts`).** Build M3→M9 in order, one milestone per commit.
 
 **Setup in Cursor:**
 1. Add `BUILD.md` to the Cursor chat as context (optionally also `research/15-v0-spec.md` for the "why").
@@ -25,7 +25,7 @@ This file is the implementation plan. Hand it to Cursor and build **one mileston
 
 **Ground rules for the build agent:**
 - Follow the project structure (§7), config + schemas (§8), and per-module specs (§9) exactly. Each module reads config via `src/config.py` and validates with `src/schemas.py`.
-- Default config (§8) is **mflux / FLUX-schnell** for images and the commercial-safe stack — don't substitute models unless told to.
+- Default config (§8) is **mflux / FLUX.2-klein-4B** (Apache-2.0) for images and the commercial-safe stack — don't substitute models unless told to. (klein-4B was chosen over FLUX-schnell because mflux dropped FLUX.1 LoRA *training* and klein adds native multi-reference editing for character consistency.)
 - **Do NOT build deferred features** (real TikTok upload, scheduling, email) beyond the `tiktok_stub.py` stub.
 - One milestone per commit. Don't run ahead — the value is in testing each stage before layering the next.
 - Pin working dependency versions into `requirements.txt`/`pyproject.toml` as you go.
@@ -115,9 +115,9 @@ one-line prompt ─┐
 | Stage | Tool | Install | License / commercial note |
 |---|---|---|---|
 | Script LLM | **Claude Opus 4.8** | `anthropic` (pip) | Paid API (~$0.08/ep). The only cloud call. |
-| Image gen (option A, simplest Mac) | **mflux** (MLX FLUX) | `pip install mflux` | FLUX-**schnell** = Apache-2.0 (commercial OK). FLUX-**dev/Kontext** = **non-commercial** — prototype only. |
+| Image gen (option A, simplest Mac) | **mflux** (MLX) → **FLUX.2-klein-4B** | `pip install mflux` | klein-**4B** = Apache-2.0 (commercial OK); on-device LoRA-trainable; native multi-reference editing. klein-**9B** & FLUX-**dev/Kontext** = **non-commercial**. (FLUX.1-schnell: inference-only — mflux dropped FLUX.1 training.) |
 | Image gen (option B, fullest toolkit) | **ComfyUI** + SDXL/**Pony** | clone ComfyUI repo | SDXL/Pony commercially usable; gives IP-Adapter/ControlNet/LoRA for consistency. |
-| Char consistency | LoRA / IP-Adapter / FLUX-Kontext | (model files) | Kontext = non-commercial (prototype). For monetized: trained LoRA + SDXL/schnell. |
+| Char consistency | **FLUX.2 multi-reference + trained cast-LoRA** | `scripts/establish_characters.py`, `scripts/train_character_lora.py` | klein-4B does both on commercial-safe weights: reference images now, trained LoRA later. |
 | Video hook | **LTX-Video** | `diffusers` `LTXPipeline` or ComfyUI | Apache-2.0. Slow on MPS (~5–12 min/clip) — fallback = hook-clip library. |
 | TTS | **Kokoro** | `pip install kokoro` (or `kokoro-onnx`) | Apache-2.0 (commercial OK). Chatterbox (MIT) later for cloning. |
 | Music | **ACE-Step** (preferred) or **Stable Audio Open** | repo / `stable-audio-tools` | ACE-Step = Apache-2.0. Stable Audio Open = Stability Community License (commercial < $1M rev). **AVOID MusicGen weights — CC-BY-NC (non-commercial)** despite MIT code. |
@@ -128,7 +128,7 @@ one-line prompt ─┐
 | Schemas/validation | **pydantic v2** | `pip install pydantic` | Validates `episode.json`. |
 | Env/secrets | **python-dotenv** | `pip install python-dotenv` | reads `.env`. |
 
-> **Commercial-licensing rule of thumb (matters once monetizing):** for the *monetized* account use commercial-safe weights — **FLUX-schnell or SDXL/Pony** for images, **ACE-Step / Stable Audio Open** for music, **Kokoro** for TTS. For *prototyping only*, FLUX-dev/Kontext (best consistency) is fine. Full detail in `research/01` and `research/03`.
+> **Commercial-licensing rule of thumb (matters once monetizing):** for the *monetized* account use commercial-safe weights — **FLUX.2-klein-4B or SDXL/Pony** for images, **ACE-Step / Stable Audio Open** for music, **Kokoro** for TTS. For *prototyping only*, FLUX.2-klein-9B / FLUX-dev/Kontext are fine. Full detail in `research/01` and `research/03`.
 
 ---
 
@@ -187,17 +187,17 @@ python main.py --listen 127.0.0.1 --port 8188   # headless API; pipeline POSTs w
 
 ## 5. Model downloads — programmatic, not manual
 
-**Short answer: you do not download models by hand.** There are two mechanisms. The one manual prerequisite is a single HF gate click + `HF_TOKEN` for FLUX-schnell (see the table below) — everything else needs zero manual steps.
+**Short answer: you do not download models by hand.** There are two mechanisms. The one manual prerequisite is a single HF gate click + `HF_TOKEN` for FLUX.2-klein-4B (see the table below) — everything else needs zero manual steps.
 
-**(a) Lazy auto-download (default behavior).** Each library fetches its weights from Hugging Face on first use and caches them in `~/.cache/huggingface` — `mflux`→FLUX, `kokoro`→Kokoro, `whisperx`→its alignment model, diffusers `LTXPipeline.from_pretrained(...)`→LTX, ACE-Step→its checkpoint. The first run of each stage is slow (one-time download); every run after is instant. Nothing for you to do — except FLUX-schnell, which is gated (one-time "Agree" + `HF_TOKEN` in `.env`, which `src/config.py` auto-loads).
+**(a) Lazy auto-download (default behavior).** Each library fetches its weights from Hugging Face on first use and caches them in `~/.cache/huggingface` — `mflux`→FLUX.2-klein, `kokoro`→Kokoro, `whisperx`→its alignment model, diffusers `LTXPipeline.from_pretrained(...)`→LTX, ACE-Step→its checkpoint. The first run of each stage is slow (one-time download); every run after is instant. Nothing for you to do — except FLUX.2-klein-4B, which is gated (one-time "Agree" + `HF_TOKEN` in `.env`, which `src/config.py` auto-loads).
 
 **(b) Eager prefetch (recommended — one command).** Run a small `scripts/prefetch_models.py` once to pull everything up front, so the first real pipeline run isn't waiting on downloads (and so it works offline afterward). Uses `huggingface_hub.snapshot_download`.
 
-**Default-stack model access (mostly automatic; FLUX-schnell now needs a one-time gate click):**
+**Default-stack model access (mostly automatic; FLUX.2-klein-4B needs a one-time gate click):**
 
 | Model (default) | HF repo | Gated? | Token / manual step? |
 |---|---|---|---|
-| FLUX.1-schnell (images) | `black-forest-labs/FLUX.1-schnell` | **Yes** (Apache-2.0 but access-walled) | Click "Agree to access" once on the HF page, set `HF_TOKEN` in `.env` |
+| FLUX.2-klein-4B (images) | `black-forest-labs/FLUX.2-klein-4B` | **Yes** (Apache-2.0 but access-walled) | Click "Agree to access" once on the HF page, set `HF_TOKEN` in `.env` |
 | LTX-Video (hook) | `Lightricks/LTX-Video` | No | None |
 | Kokoro-82M (TTS) | `hexgrad/Kokoro-82M` | No | None |
 | ACE-Step (music) | `ACE-Step/ACE-Step-v1-3.5B` | No | None |
@@ -211,28 +211,26 @@ python main.py --listen 127.0.0.1 --port 8188   # headless API; pipeline POSTs w
 | Stable Audio Open | `stabilityai/stable-audio-open-1.0` | Alt music model | Same one-time click + `HF_TOKEN` |
 | SDXL / Pony V6 (option B) | HF or CivitAI | Fullest consistency toolkit | CivitAI: free API key or direct URL (scriptable); HF SDXL is ungated |
 
-So: **the only ever-manual action is clicking "Agree to access" once on a gated model's web page + setting `HF_TOKEN`.** You hit this for FLUX-schnell (the default image model — BFL access-walled it) and for any opt-in upgrade (FLUX-dev/Kontext, Stable Audio Open). Everything else is automatic.
+So: **the only ever-manual action is clicking "Agree to access" once on a gated model's web page + setting `HF_TOKEN`.** You hit this for FLUX.2-klein-4B (the default image model — BFL access-walled it) and for any opt-in upgrade (FLUX-dev/Kontext, Stable Audio Open). Everything else is automatic.
 
 **`scripts/prefetch_models.py` (programmatic prefetch):**
 ```python
 import os
 from huggingface_hub import snapshot_download
 
-UNGATED = [
-    "black-forest-labs/FLUX.1-schnell",
+REPOS = [
+    "black-forest-labs/FLUX.2-klein-4B",  # default image model (Apache-2.0; one-time HF gate click)
     "Lightricks/LTX-Video",
     "hexgrad/Kokoro-82M",
     "ACE-Step/ACE-Step-v1-3.5B",
-]
-GATED = [   # only if you opt in — needs HF_TOKEN + a one-time license click on each repo's HF page
+    # Optional upgrades (need HF_TOKEN + a one-time license click):
     # "black-forest-labs/FLUX.1-Kontext-dev",
     # "stabilityai/stable-audio-open-1.0",
 ]
 
-for repo in UNGATED:
-    print("↓", repo); snapshot_download(repo_id=repo)            # → ~/.cache/huggingface
-for repo in GATED:
-    print("↓", repo); snapshot_download(repo_id=repo, token=os.environ["HF_TOKEN"])
+token = os.environ.get("HF_TOKEN") or None  # passed when present → works for gated + ungated
+for repo in REPOS:
+    print("↓", repo); snapshot_download(repo_id=repo, token=token)   # → ~/.cache/huggingface
 print("All models cached.")
 ```
 Run once: `uv run python scripts/prefetch_models.py`. (Add `local_dir="models/<name>"` to a `snapshot_download` call if you want weights under `models/` instead of the HF cache.)
@@ -295,7 +293,9 @@ slop-factory/
 │       └── caption.txt
 ├── ready_to_post/                # approved final.mp4 + caption.txt awaiting manual upload
 ├── scripts/
-│   └── prefetch_models.py        # one-command programmatic model download (Section 5)
+│   ├── prefetch_models.py        # one-command programmatic model download (Section 5)
+│   ├── establish_characters.py   # lock canonical character references for a series (M2 consistency)
+│   └── train_character_lora.py   # train a per-series cast-LoRA on FLUX.2-klein (M2 consistency, Tier 2)
 └── src/
     ├── config.py                 # loads settings.yaml + .env
     ├── schemas.py                # pydantic: SeriesBible, Episode, Scene, Hook, Caption
@@ -323,7 +323,7 @@ slop-factory/
 ```yaml
 paths: { episodes: episodes, ready_to_post: ready_to_post, models: models }
 video: { width: 1080, height: 1920, fps: 30, target_duration_sec: 72, min_duration_sec: 62, min_shot_sec: 4, max_shot_sec: 7 }  # per-shot pacing: vary 4-7s for retention
-image: { backend: mflux, model: flux-schnell, steps: 4, guidance: 3.5, quantize: null, lora_path: null, lora_scale: 1.0 }  # quantize 4/8 to save RAM; lora_path = trained char/style LoRA for consistency
+image: { backend: mflux, model: flux2-klein-4b, steps: 4, guidance: 1.0, use_references: true, quantize: null, lora_path: null, lora_scale: 1.0 }  # klein-4b distilled (guidance 1.0); use_references = multi-ref consistency; lora_path overrides the series' trained LoRA
 hook:  { backend: ltx, max_seconds: 4, allow_library_fallback: true }
 tts:   { backend: kokoro }
 music: { backend: ace-step, gain_under_voice: 0.18 }
@@ -341,7 +341,7 @@ llm:   { model: claude-opus-4-8, effort: medium }
   "hook_text": "He hit the spillway at full speed.",
   "hook": {
     "type": "video",
-    "prompt": "surfer on a neon hydro-board rockets off a sewer spillway, huge spray, exaggerated wipeout, dynamic camera, bold anime ink-outline style",
+    "prompt": "surfer on a neon hydro-board rockets off a sewer spillway, huge spray, exaggerated wipeout, dynamic camera, polished Pixar-style 3D cartoon-realism",
     "library_clip": null,
     "duration_sec": 3.5,
     "sfx": "rushing water then a comedic splash"
@@ -381,8 +381,8 @@ llm:   { model: claude-opus-4-8, effort: medium }
   "logline": "Two rival riders build custom hydro-boards and battle across a season for the Sewer Crown.",
   "premise": "Underground surfers design their own hydro-boards to ride the storm drains; two rivals trade wins and defeats across a season-long duel building toward the Sewer Crown race.",
   "setting": "A neon-lit underground world of storm drains and flood tunnels beneath a rain-soaked city.",
-  "style_anchor": "stylized 2D anime aesthetic, bold clean ink outlines, cel-shaded figures, expressive hand-drawn animation, dynamic speed lines, vibrant neon palette over painterly backgrounds",
-  "tone": "high-energy sports-anime rivalry with comedic beats and real stakes",
+  "style_anchor": "highly polished 3D cartoon-realism in the style of a modern Pixar feature: appealing expressive characters with soft rounded forms, subsurface-scattering skin/fur, PBR materials, cinematic lighting and glossy wet highlights, shallow depth of field, rich saturated color",
+  "tone": "high-energy Pixar-style sports rivalry with comedic beats and real stakes",
   "episode_format": "A ~60-75s self-contained beat that also advances the season arc: frame-1 hook, stakes setup, gadgets-vs-nerve contrast where relevant, loopable cliffhanger. NOT every episode is a race — vary purpose per arc.episode_purposes.",
   "arc": {
     "total_episodes": 20,
@@ -391,22 +391,26 @@ llm:   { model: claude-opus-4-8, effort: medium }
     "episode_purposes": ["a spaced-out race/heat", "a new board or strategy", "a defeat/setback", "character or relationship beat", "training run", "rising buildup toward a race"],
     "pacing_notes": "Space races out as anticipated tentpole events; fill between them with strategy and character episodes; plant seeds for the finale and escalate as ep 20 nears."
   },
+  "world_anchor": "Riders ride custom finned hydro-surfboards on rushing water through neon storm drains — never motorcycles, wheels, rails, or roads.",
   "characters": [
     {
       "name": "circuit",
-      "appearance_tokens": "a wiry inventor in a gadget-studded wetsuit with LED strips and round goggles, board bristling with sensors",
+      "appearance_tokens": "a small golden-brown monkey with amber eyes and a long tail, cool-toned beach streetwear (open cyan-and-white windbreaker, cargo board-shorts, neon-yellow slides), snorkel goggles up on his head, yellow #3, sensor-studded hydro-board",
       "personality": "brainy, calculating; wins by out-engineering the course",
       "reference_image": "assets/characters/circuit/ref.png",
+      "lora_trigger": "sscircuit",
       "voice": "am_michael"
     },
     {
       "name": "riptide",
-      "appearance_tokens": "a broad-shouldered daredevil in a scarred neon wetsuit with a shark-fin mohawk and a minimalist speed board",
+      "appearance_tokens": "a lean charcoal-black cat with green eyes and a spiky fur mohawk, bold warm-toned beach streetwear (magenta-and-black rashguard tank, open palm-print bomber, wave-print board-shorts), white #7, minimalist neon-orange speed board",
       "personality": "reckless, fearless; rides on pure instinct",
       "reference_image": "assets/characters/riptide/ref.png",
+      "lora_trigger": "ssriptide",
       "voice": "am_adam"
     }
   ],
+  "lora": { "path": "assets/characters/sewer-surfers/lora.safetensors", "scale": 1.0, "trained": false },
   "plot_state": {
     "active_threads": ["the race for the Sewer Crown is dead even"],
     "last_cliffhanger": null,
@@ -414,6 +418,7 @@ llm:   { model: claude-opus-4-8, effort: medium }
   }
 }
 ```
+> Consistency fields: `style_anchor` (art style) + `world_anchor` (recurring props/setting) are injected into every image prompt; each character's `reference_image` drives FLUX.2 multi-reference conditioning; `lora_trigger` + the series `lora` block wire in the optional trained cast-LoRA. See `images.py` (§9) and the M2 consistency workflow.
 
 ---
 
@@ -425,7 +430,7 @@ Each module: **Purpose · Input · Output · Key libs · Done-when.** All read c
 
 **`script_gen.py`** — Purpose: one-line prompt (or "continue") + series bible → validated `episode.json`. Input: `series_id`, optional `prompt`. Output: `episodes/<id>/episode.json`. Key libs: `anthropic` (Opus 4.8, structured output via `output_config.format` = `{type: json_schema, schema: Episode.model_json_schema()}` with `output_config.effort` from `settings.llm.effort`; the series bible is the cached system prefix). Notes: the bible's creative brief — `premise`/`setting`/`tone`/`episode_format` + per-character `personality` — is injected so each series writes structurally distinct episodes; scene `image_prompt`s name characters and describe the shot only (appearance_tokens + style_anchor are prepended at render in M2, so don't restate them). Enforce frame-1 hook, ≥62s total (sum scene durations + hook), per-scene `mood`+`intensity`, loopable `cliffhanger_text`, keyword-led `caption.description`; `episode_id`/`series_id` are set from the orchestrator, not the model. **Shot pacing for retention:** each scene is one held image, so the prompt asks for varied shot lengths in `video.min_shot_sec`..`max_shot_sec` (4–7s; quick cuts on punchy dialogue, longer on emotional/establishing beats, 7s hard ceiling) → ~12 short shots for a 72s ep, cutting to the speaker in dialogue rather than lingering; scenes over the max get a non-fatal warning. After generating, update bible `plot_state` (`last_cliffhanger` + `episode_log`). Done-when: produces a schema-valid episode whose durations sum ≥ `min_duration_sec`.
 
-**`images.py`** — Purpose: render one keyframe per scene with character consistency. Input: `episode.json` + bible. Output: `images/scene_NN.png` (1080×1920). Key libs: mflux (`Flux1(ModelConfig.from_name("schnell")).generate_image(...)`) **or** ComfyUI API. **Character identity is held by three layers (weakest→strongest):** (1) **prompt anchoring** — for each scene, detect which bible characters are named in `image_prompt` and prefix the prompt with their exact `appearance_tokens` + the series `style_anchor`, so the model re-describes the same look/style every shot; (2) **stable per-character seed** — seed = `sha256(series_id : first-character-in-shot : scene_id)`, so a character stays in one visual family and re-runs are reproducible; (3) **trained character LoRA** (opt-in `image.lora_path`/`lora_scale`, passed to `Flux1(lora_paths=…)`) — the production lock; FLUX-Kontext / img2img reference is the non-commercial prototype alternative. Render at dims rounded up to a multiple of 16 (1080→1088), then center-crop to the exact video size. Per-scene PNGs are skipped if they already exist (intra-stage resume for long renders). Include `ken_burns(img_path, move, duration_sec, out, *, fps, width, height) -> clip` helper using ffmpeg `zoompan` (2× pre-scale to cut jitter; comma-free expressions so it's argv-safe). Done-when: N portrait PNGs, visually consistent character across scenes.
+**`images.py`** — Purpose: render one keyframe per scene with character consistency. Input: `episode.json` + bible. Output: `images/scene_NN.png` (1080×1920). Key lib: mflux on **FLUX.2-klein-4B** (Apache-2.0) — a single `Flux2KleinEdit(ModelConfig.from_name("flux2-klein-4b"))` serves every scene (with no references it falls back to txt2img, so one loaded model covers ref and non-ref shots). guidance must be `1.0` (distilled). **Character identity is held by three layers (weakest→strongest):** (1) **prompt anchoring** — detect which bible characters are named in `image_prompt`, prefix their exact `appearance_tokens` + the series `style_anchor`, and append the series `world_anchor` (recurring props/setting, e.g. "hydro-boards, never motorcycles" — this is what stops board→motorbike drift); (2) **multi-reference conditioning** — pass each present character's `reference_image` as `generate_image(image_paths=[...])` so the model reproduces the *same* character in new compositions (the main lock, no training; create the refs once with `scripts/establish_characters.py`); (3) **trained cast-LoRA** — one per-series LoRA over all characters keyed by per-character `lora_trigger`, trained by `scripts/train_character_lora.py` on klein-4B and loaded via `bible.lora` (or `image.lora_path` override); when active, character names are swapped for their trigger tokens in the prompt. Render at dims rounded up to a multiple of 16 (1080→1088), then center-crop to the exact video size. Per-scene PNGs are skipped if they already exist (intra-stage resume; delete the folder to re-render after a model/prompt change). Include `ken_burns(img_path, move, duration_sec, out, *, fps, width, height) -> clip` helper using ffmpeg `zoompan` (2× pre-scale to cut jitter; comma-free expressions so it's argv-safe). Done-when: N portrait PNGs, visually consistent character across scenes.
 
 **`hook.py`** — Purpose: produce the 3–4s hook clip. Input: `episode.hook`. Output: `hook.mp4` (portrait, ≤4s). Key libs: diffusers `LTXPipeline` (MPS) or ComfyUI; fallback to a clip from `assets/hook_library/` when `type:"library"` or LTX fails. Notes: cap seconds; expect slowness (~5–12 min); stylized/cartoon prompts; pick-best loop optional. Done-when: a portrait ≤4s clip exists (generated or library).
 
@@ -468,10 +473,12 @@ Build in order. After each milestone: run **Test**, confirm **Expected**, then *
 - **🛑 Checkpoint:** commit `"M1: script gen"`. Stop.
 
 **M2 — Images**
-- **Build:** `images.py` (mflux/FLUX-schnell) with prompt-anchoring + stable per-character seed (+ opt-in LoRA hook) + `ken_burns()` ffmpeg helper.
-- **Test:** `uv run python -m src.pipeline.orchestrator --series sewer-surfers --episode <id> --force images --until images` (first run downloads FLUX-schnell, ~30GB, one-time).
-- **Expected:** one 1080×1920 PNG per scene in `images/`; the character is recognizably consistent across scenes (eyeball it).
+- **Build:** `images.py` on FLUX.2-klein-4B (prompt anchoring + `world_anchor` + multi-reference conditioning + opt-in cast-LoRA) + `ken_burns()` ffmpeg helper. Consistency tooling: `scripts/establish_characters.py` (lock canonical refs), `scripts/train_character_lora.py` (Tier-2 LoRA, dataset → `mflux-train`).
+- **Test:** `uv run python scripts/establish_characters.py --series sewer-surfers` then `uv run python -m src.pipeline.orchestrator --series sewer-surfers --episode <id> --force images --until images` (first run downloads klein-4B, one-time; needs the HF gate + `HF_TOKEN`).
+- **Expected:** one 1080×1920 PNG per scene in `images/`; with references locked, the same character renders consistently across scenes (eyeball it).
 - **🛑 Checkpoint:** commit `"M2: image gen + ken burns"`. Stop.
+
+> **Consistency workflow (M2):** (1) `establish_characters.py` renders one canonical reference per character → `assets/characters/<name>/ref.png`. (2) The images stage feeds those refs to klein's multi-reference edit path — strong identity, no training. (3) For the production lock, curate ~15-30 captioned shots into `assets/characters/<series>/dataset/` (caption each with the character's `lora_trigger`) and run `train_character_lora.py` → trains one cast-LoRA, writes it back into the bible (`lora.trained=true`), and the next render loads it automatically.
 
 **M3 — TTS**
 - **Build:** `tts.py` (Kokoro, locked voice per character).
@@ -625,7 +632,7 @@ uv run python -m src.pipeline.orchestrator --series <affiliate-series> --mode af
 - **LTX-Video is the slow/fragile step.** If MPS support is flaky, lean on the **hook-clip library** and only generate fresh hooks occasionally.
 - **FLUX FP8 isn't supported on MPS** — use mflux (MLX handles quantization) or GGUF in ComfyUI.
 - **64GB is plenty** to keep an image model + TTS + WhisperX resident; you won't swap. Run stages sequentially per episode; parallelize across episodes only if RAM allows.
-- **Licensing before monetizing:** switch any prototype-only weights (FLUX-dev/Kontext, MusicGen) to commercial-safe ones (FLUX-schnell/SDXL, ACE-Step/Stable Audio Open) before the account earns.
+- **Licensing before monetizing:** switch any prototype-only weights (FLUX-dev/Kontext, klein-9B, MusicGen) to commercial-safe ones (FLUX.2-klein-4B/SDXL, ACE-Step/Stable Audio Open) before the account earns.
 
 ---
 

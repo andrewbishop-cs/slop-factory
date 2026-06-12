@@ -42,12 +42,13 @@ class VideoConfig(BaseModel):
 
 class ImageConfig(BaseModel):
     backend: str = "mflux"
-    model: str = "flux-schnell"
+    model: str = "flux2-klein-4b"  # Apache-2.0, on-device trainable, native multi-reference editing
     steps: int = 4
     quantize: int | None = None  # 4 or 8 to shrink memory footprint; None = full precision
-    guidance: float = 3.5  # ignored by FLUX-schnell (guidance-distilled)
-    # Character-consistency lever (optional, layered on top of prompt anchoring):
-    lora_path: str | None = None  # a trained character/style LoRA applied to every scene
+    guidance: float = 1.0  # klein-4b is distilled → must be 1.0
+    # Character consistency:
+    use_references: bool = True  # feed each character's reference image so the model keeps them consistent
+    lora_path: str | None = None  # global LoRA override; if unset, the series bible's `lora` is used
     lora_scale: float = 1.0
 
 

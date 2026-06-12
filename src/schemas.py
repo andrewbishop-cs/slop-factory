@@ -84,7 +84,8 @@ class Character(BaseModel):
     name: str
     appearance_tokens: str
     personality: str
-    reference_image: str | None = None
+    reference_image: str | None = None  # canonical "character sheet" used for multi-reference consistency (M2)
+    lora_trigger: str | None = None  # rare token this character maps to inside a trained LoRA, e.g. "ssriptide"
     voice: str | None = None  # path to a sample wav, or a Kokoro voice id
 
 
@@ -94,6 +95,20 @@ class PlotState(BaseModel):
     active_threads: list[str] = Field(default_factory=list)
     last_cliffhanger: str | None = None
     episode_log: list[str] = Field(default_factory=list)
+
+
+class LoraSpec(BaseModel):
+    """A trained character/style LoRA for a series (the Tier-2 consistency lock).
+
+    `images.py` loads it on top of the base model when `trained` is true and the
+    file exists; until then the pipeline relies on reference-image conditioning.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    path: str  # safetensors path, relative to repo root
+    scale: float = 1.0
+    trained: bool = False  # flipped true by the training script once the file is produced
 
 
 class SeasonArc(BaseModel):
@@ -126,9 +141,15 @@ class SeriesBible(BaseModel):
 
     series_id: str
     premise: str
-    style_anchor: str
+    style_anchor: str  # global art-style tokens prepended to every image prompt
     characters: list[Character] = Field(min_length=1)
     plot_state: PlotState = Field(default_factory=PlotState)
+
+    # Consistency anchors (M2). `world_anchor` is injected into every image prompt like
+    # `style_anchor`, pinning recurring props/setting (e.g. "hydro-boards, never motorcycles");
+    # `lora` is the optional trained per-series character LoRA.
+    world_anchor: str | None = None
+    lora: LoraSpec | None = None
 
     # Per-series creative brief (optional, additive — drives M1 script_gen).
     display_name: str | None = None  # human label, e.g. "Sewer Surfers"

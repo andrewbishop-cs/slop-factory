@@ -1,8 +1,8 @@
 """One-command programmatic model prefetch (BUILD.md §5).
 
-`FLUX.1-schnell` is gated on Hugging Face (Apache-2.0 license, but access-walled):
-click "Agree to access" once on its HF page and set HF_TOKEN in .env. The other
-default-stack models are ungated. Optional upgrades stay commented out.
+BFL repos (FLUX.2-klein-4B, the default image model) are usually access-walled even
+when Apache-2.0: click "Agree to access" once on the HF page and set HF_TOKEN in .env.
+The token is passed when present, so this works for both gated and ungated repos.
 
 Run once: uv run python scripts/prefetch_models.py
 """
@@ -14,21 +14,18 @@ from huggingface_hub import snapshot_download
 
 load_dotenv()
 
-UNGATED = [
+REPOS = [
+    "black-forest-labs/FLUX.2-klein-4B",  # default image model (Apache-2.0; may require a one-time HF gate click)
     "Lightricks/LTX-Video",
     "hexgrad/Kokoro-82M",
     "ACE-Step/ACE-Step-v1-3.5B",
-]
-GATED = [  # needs HF_TOKEN + a one-time license click on each repo's HF page
-    "black-forest-labs/FLUX.1-schnell",
+    # Optional upgrades (need HF_TOKEN + a one-time license click):
     # "black-forest-labs/FLUX.1-Kontext-dev",
     # "stabilityai/stable-audio-open-1.0",
 ]
 
-for repo in UNGATED:
+token = os.environ.get("HF_TOKEN") or None
+for repo in REPOS:
     print("↓", repo)
-    snapshot_download(repo_id=repo)  # → ~/.cache/huggingface
-for repo in GATED:
-    print("↓", repo)
-    snapshot_download(repo_id=repo, token=os.environ["HF_TOKEN"])
+    snapshot_download(repo_id=repo, token=token)  # → ~/.cache/huggingface
 print("All models cached.")

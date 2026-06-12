@@ -1,23 +1,31 @@
 {
   "series_id": "sewer-surfers",
-  "premise": "In the neon-lit waterways beneath the city, underground surfers design and build their own hydro-boards to ride the storm drains. Across one season, two rivals — a gadget-obsessed engineer and a fearless daredevil — trade wins, defeats, and new strategies in a season-long duel that builds toward the legendary Sewer Crown race.",
-  "style_anchor": "stylized 2D anime aesthetic, bold clean ink outlines, cel-shaded figures with expressive hand-drawn character animation, dynamic speed lines and motion smears, vibrant neon palette over slightly painterly backgrounds, glossy wet highlights, cinematic",
+  "premise": "In the neon-lit waterways beneath the city, underground surfers design and build their own hydro-boards to ride the storm drains. Across one season, two rivals — Circuit, a gadget-obsessed monkey engineer, and Riptide, a fearless cat daredevil — trade wins, defeats, and new strategies in a season-long duel that builds toward the legendary Sewer Crown race.",
+  "style_anchor": "highly polished 3D cartoon-realism in the style of a modern Pixar feature film: appealing, expressive stylized characters with soft rounded forms and big emotive eyes, detailed subsurface-scattering skin and groomed fur, physically based materials and fabric, cinematic lighting with warm bounce light and glossy wet highlights, shallow depth of field, rich saturated color, high-detail 3D render",
   "characters": [
     {
       "name": "circuit",
-      "appearance_tokens": "a wiry young inventor in a patched neoprene wetsuit studded with gadgets and glowing LED strips, big round goggles pushed up on messy hair, a utility belt of tools, board bristling with sensors and fins",
+      "appearance_tokens": "a small wiry monkey with warm golden-brown fur, big curious amber eyes, and a long prehensile tail; brainy gadgeteer in cool-toned beach streetwear — an oversized cyan-and-white mesh-panel windbreaker worn open, a baggy graphic tee, roomy cargo board-shorts, and chunky neon-yellow pool slides; a snorkel-and-goggle set pushed up on his head and a clear waterproof gadget sling-bag, signature yellow number 3; rides a sensor-studded hydro-surfboard bristling with small fins",
       "personality": "brainy, calculating, over-prepared; wins by out-engineering the course with gadgets, telemetry, and clever lines",
       "reference_image": "assets/characters/circuit/ref.png",
+      "lora_trigger": "sscircuit",
       "voice": "am_michael"
     },
     {
       "name": "riptide",
-      "appearance_tokens": "a broad-shouldered daredevil in a battle-scarred neon wetsuit, shark-fin mohawk, fearless grin, fingerless gloves, a scuffed minimalist board built for raw speed",
+      "appearance_tokens": "a lean, tall, athletic cat with sleek charcoal-black fur, sharp green eyes, a torn ear and a spiky fur mohawk; fearless daredevil in bold warm-toned beach streetwear — a fitted sleeveless magenta-and-black graphic rashguard tank under an open palm-print bomber, long flame-and-wave print board-shorts, a shark-tooth cord necklace and grippy neon-orange reef shoes, signature white number 7; rides a stripped-down minimalist neon-orange hydro-surfboard built for raw speed",
       "personality": "reckless, fearless, rides on pure instinct and adrenaline; takes insane lines no sane surfer would attempt",
       "reference_image": "assets/characters/riptide/ref.png",
+      "lora_trigger": "ssriptide",
       "voice": "am_adam"
     }
   ],
+  "world_anchor": "Riders ride custom finned hydro-surfboards, standing or crouched, surfing fast-rushing water through neon storm drains and flood tunnels. The vehicles are always water surfboards — never motorcycles, bikes, wheels, handlebars, rails, train tracks, or cars; the surface is always rushing water, never roads or tracks.",
+  "lora": {
+    "path": "assets/characters/sewer-surfers/lora.safetensors",
+    "scale": 1.0,
+    "trained": false
+  },
   "plot_state": {
     "active_threads": [
       "the race for the Sewer Crown is dead even between Circuit and Riptide"
@@ -31,7 +39,7 @@
   "logline": "Two rival riders build custom hydro-boards and battle across a season for the Sewer Crown.",
   "setting": "A vast underground world of storm drains, flood tunnels, and sluice gates beneath a rain-soaked city. Rushing water, glowing algae, graffiti-tagged concrete, and shafts of streetlight through the grates above.",
   "episode_format": "Each episode is a ~60-75s self-contained beat that ALSO advances the season arc. Always: a frame-1 hook, a clear stakes setup, the Circuit-vs-Riptide contrast (gadgets vs. raw nerve) where relevant, and a loopable cliffhanger that pulls toward the next episode and the looming Sewer Crown. NOT every episode is a race — vary the purpose per `arc.episode_purposes` (a new strategy, a defeat, a character or relationship beat, a training run, rising buildup) so races feel like special, anticipated events.",
-  "tone": "high-energy sports-anime rivalry with comedic beats and real emotional stakes",
+  "tone": "high-energy Pixar-style sports rivalry with comedic beats and real emotional stakes",
   "arc": {
     "total_episodes": 20,
     "synopsis": "A 20-episode season-long rivalry between Circuit and Riptide for the Sewer Crown. Episode 1 throws viewers straight into a high-stakes race. From there the season is rising action — alternating wins and defeats, new boards and strategies, qualifying heats, and deepening rivalry-into-respect — escalating tension toward the climactic Sewer Crown race.",
