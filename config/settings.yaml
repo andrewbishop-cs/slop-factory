@@ -2,9 +2,9 @@ paths: { episodes: episodes, ready_to_post: ready_to_post, models: models }
 video: { width: 1080, height: 1920, fps: 30, target_duration_sec: 72, min_duration_sec: 62, min_shot_sec: 4, max_shot_sec: 7 }
 image: { backend: mflux, model: flux2-klein-4b, steps: 4, guidance: 1.0, use_references: true }  # klein-4b: Apache-2.0, multi-reference consistency (distilled → guidance must be 1.0)
 hook:  { backend: ltx, max_seconds: 4, allow_library_fallback: true }
-tts:   { backend: kokoro, narrator_voice: am_onyx, narrator_speed: 1.1, speed: 1.2 }  # dramatic narrator (am_onyx, weighty); energetic character dialogue (faster). Dialogue uses the character's bible voice.
+tts:   { backend: kokoro, narrator_voice: am_onyx, narrator_speed: 1.15, speed: 1.25 }  # dramatic narrator (am_onyx); energetic, faster character dialogue. Dialogue uses the character's bible voice.
 music: { backend: ace-step, gain_under_voice: 0.18 }
-captions: { font: assets/fonts/Bold.ttf, words_per_group: 4, position: lower_third, active_color: yellow }
+captions: { font: assets/fonts/Bold.ttf, words_per_group: 3, position: lower_third, active_color: yellow }  # 3 words/line keeps karaoke lines inside the frame
 framing: { enabled: true, target_fill: 0.6, min_zoom: 1.15, max_zoom: 1.6 }  # vision-guided Ken Burns: push in toward the focal character (moondream2). false = scripted motion.move only
 audio: { target_lufs: -14, true_peak: -1.5 }
 llm:   { model: claude-opus-4-8, effort: medium }

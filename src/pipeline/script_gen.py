@@ -18,6 +18,10 @@ from anthropic import Anthropic
 from src.config import Settings, anthropic_api_key, save_series_bible
 from src.schemas import Episode, SeriesBible
 
+# Roughly how many words the TTS speaks per second at the configured dialogue/narration speed.
+# Used to budget narration length so the voiceover fills the shot (no trailing dead air).
+NARRATION_WORDS_PER_SEC = 2.8
+
 SYSTEM_INSTRUCTIONS = """\
 You are the head writer for a vertical short-form (TikTok) animated series. \
 You write a single self-contained episode that is engineered to retain a scrolling viewer.
@@ -31,6 +35,11 @@ Refer to characters by their bible name. Do NOT restate a character's physical a
 global art style: those are applied automatically at render time, so restating them is wasteful.
 - Every scene needs `narration_text`, a `mood` (short phrase) and an `intensity` in [0,1] that \
 tracks the emotional arc (calmer setup → peak near the climax).
+- NARRATION DENSITY (kill dead air): `narration_text` must FILL its entire shot with continuous, \
+punchy speech — the voiceover should run essentially the whole shot with no silent tail. Budget the \
+word count to the shot's length at the stated speaking rate (below); write the fuller, more verbose \
+line rather than a short one that leaves the shot half-silent. Keep it natural and propulsive, never \
+padded filler. This is critical for retention — viewers drop on dead air.
 - PACING FOR RETENTION: each scene is ONE held image (a single shot). VARY shot length within the \
 range given below — quick cuts on punchy/rapid dialogue, a beat longer on an emotional or establishing \
 shot — but never exceed the hard max. Don't make every shot the same length. Prefer MANY short shots \
@@ -192,7 +201,11 @@ def generate_script(
         f"SHOT PACING: vary each scene between {min_shot:g}s and {max_shot:g}s (hard ceiling "
         f"{max_shot:g}s) — quick ~{min_shot:g}s cuts on punchy dialogue, up to ~{max_shot:g}s on "
         f"emotional or establishing shots; don't make them all the same length. That's roughly "
-        f"{approx_shots} scenes — cut to the speaker in dialogue rather than lingering on one image."
+        f"{approx_shots} scenes — cut to the speaker in dialogue rather than lingering on one image.\n"
+        f"NARRATION DENSITY: the VO is spoken at ~{NARRATION_WORDS_PER_SEC:g} words/sec, so write "
+        f"narration that fills each shot — about {round(min_shot * NARRATION_WORDS_PER_SEC)} words for a "
+        f"{min_shot:g}s shot, up to ~{round(max_shot * NARRATION_WORDS_PER_SEC)} words for a {max_shot:g}s "
+        f"shot. The talking should run almost the whole shot with no trailing dead air."
     )
 
     client = Anthropic(api_key=anthropic_api_key())

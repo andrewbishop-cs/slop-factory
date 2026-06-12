@@ -135,7 +135,7 @@ def _header(width: int, height: int) -> str:
     return (
         "[Script Info]\n"
         "ScriptType: v4.00+\n"
-        "WrapStyle: 2\n"
+        "WrapStyle: 0\n"  # smart wrap: long karaoke lines break onto multiple lines instead of running off-frame
         "ScaledBorderAndShadow: yes\n"
         f"PlayResX: {width}\n"
         f"PlayResY: {height}\n\n"

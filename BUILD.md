@@ -525,6 +525,16 @@ Build in order. After each milestone: run **Test**, confirm **Expected**, then *
 
 ---
 
+### Post-v0 follow-ups (deferred polish — not blockers)
+
+Tracked here so they aren't lost; pick up after Phase 0 core is green.
+
+**Intelligent Ken Burns framing — known limitations.** The M5 framing pass (`src/pipeline/framing.py`, moondream2) picks a per-scene focal box and pushes the Ken Burns move toward it. Verified on `ep_0001`: **8/13 scenes targeted** (scene 1 → Circuit, scene 5 → Circuit's line, scene 6 → Riptide's line); the scene-1 end frame lands its push-in squarely on the detected character. Two honest gaps:
+- **(a) No true intra-shot A→B speaker panning.** Panning from one speaker to another mid-shot needs multi-speaker scenes, which is a schema change. Today `script_gen` already splits a dialogue exchange into separate single-speaker shots, so per-shot targeting covers most of the intended effect — full intra-shot panning is a nice-to-have, not required.
+- **(b) Unnamed group shots fall back to scripted moves.** Scenes phrased as a group ("both riders", "the tunnels merge") have no single focal target, so framing defers to the scripted `motion.move` rather than guessing. This is intended behavior, not a bug.
+
+---
+
 ### Phase 0 scale-out — run the factory as a fleet
 
 **M10 — Multi-account fleet**
