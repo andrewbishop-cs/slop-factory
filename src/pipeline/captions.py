@@ -17,7 +17,8 @@ from pathlib import Path
 import whisperx
 
 from src.config import PROJECT_ROOT, CaptionsConfig, Settings
-from src.schemas import Episode, Scene
+from src.pipeline import timing
+from src.schemas import Episode
 
 ALIGN_DEVICE = "cpu"  # wav2vec2 forced alignment; CPU is reliable on Apple Silicon and clips are short
 ALIGN_LANGUAGE = "en"
@@ -107,15 +108,6 @@ def _karaoke_line(words: list[dict], offset: float) -> tuple[float, float, str]:
     return start, end, "".join(chunks).rstrip()
 
 
-def _scene_offsets(episode: Episode) -> list[float]:
-    """Body-timeline start time of each scene (cumulative scene durations; no hook yet)."""
-    offsets, t = [], 0.0
-    for scene in episode.scenes:
-        offsets.append(t)
-        t += scene.duration_sec
-    return offsets
-
-
 def _styles_block(cfg: CaptionsConfig, height: int) -> str:
     font = _font_name(cfg)
     active = _COLORS.get(cfg.active_color.lower(), _COLORS["yellow"])
@@ -153,15 +145,16 @@ def _header(width: int, height: int) -> str:
 def generate_captions(settings: Settings, episode: Episode, episode_dir: Path) -> Path:
     """Align narration wavs against their text and write `captions.ass`; returns its path."""
     audio_dir = episode_dir / "audio"
-    offsets = _scene_offsets(episode)
+    durations = timing.shot_durations(episode, audio_dir)
+    offsets = timing.scene_offsets(durations)
     words_per_group = max(1, settings.captions.words_per_group)
 
     model = metadata = None
     events: list[tuple[float, float, str, str]] = []  # (start, end, style, body)
 
-    for scene, offset in zip(episode.scenes, offsets):
+    for scene, offset, shot_dur in zip(episode.scenes, offsets, durations):
         if scene.top_text:
-            events.append((offset, offset + scene.duration_sec, "Top", _ass_escape(scene.top_text)))
+            events.append((offset, offset + shot_dur, "Top", _ass_escape(scene.top_text)))
 
         text = scene.narration_text.strip()
         wav = audio_dir / f"scene_{scene.id:02d}.wav"
