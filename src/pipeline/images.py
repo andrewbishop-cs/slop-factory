@@ -49,9 +49,21 @@ def _stable_seed(*parts: str) -> int:
     return int.from_bytes(digest[:4], "big")
 
 
-def _characters_in_scene(scene: Scene, bible: SeriesBible) -> list[Character]:
-    """Characters whose name is mentioned in the scene's image prompt."""
-    return [c for c in bible.characters if re.search(rf"\b{re.escape(c.name)}\b", scene.image_prompt, re.IGNORECASE)]
+def _present_characters(episode: Episode, bible: SeriesBible) -> list[Character]:
+    """Characters listed in the episode's `characters_present` (matched to the bible)."""
+    present = {p.lower() for p in episode.characters_present}
+    return [c for c in bible.characters if c.name.lower() in present]
+
+
+def _characters_in_scene(scene: Scene, episode: Episode, bible: SeriesBible) -> list[Character]:
+    """Characters in a shot: those named in the prompt, else the episode's present cast.
+
+    The Flux2KleinEdit path requires at least one reference image, so a scene that
+    names nobody (e.g. "both riders burst out") must still resolve to the present
+    cast rather than producing an empty reference list (which crashes mflux).
+    """
+    named = [c for c in bible.characters if re.search(rf"\b{re.escape(c.name)}\b", scene.image_prompt, re.IGNORECASE)]
+    return named or _present_characters(episode, bible)
 
 
 def _lora_args(settings: Settings, bible: SeriesBible) -> tuple[list[str] | None, list[float] | None]:
@@ -72,14 +84,40 @@ def _use_trigger(bible: SeriesBible) -> bool:
 
 
 def _build_prompt(scene: Scene, bible: SeriesBible, characters: list[Character], use_trigger: bool) -> str:
-    """Anchor the shot, leading with the art style (diffusion weights early tokens most)."""
+    """Anchor the shot, leading with the art style (diffusion weights early tokens most).
+
+    Reference-image conditioning tends to copy the neutral character sheet (static
+    pose, default faint smile) and even tile the subject into the background. With
+    klein's forced `guidance=1.0` the negative-prompt path is disabled, so we steer
+    positively: inject the scene `mood` as an explicit performance, demand a dynamic
+    pose, and — for solo shots — assert a single subject to suppress background clones.
+    """
     parts: list[str] = []
+    labels: list[str] = []
     for c in characters:
         label = c.lora_trigger if (use_trigger and c.lora_trigger) else c.name
+        labels.append(label)
         parts.append(f"{label} ({c.appearance_tokens})")
     who = ("Characters — " + "; ".join(parts) + ". ") if parts else ""
+
+    emotion = (
+        f" Emotion and acting: clearly express {scene.mood} through a vivid, exaggerated facial "
+        f"expression and a dynamic mid-action body pose — not a neutral standing pose, not a faint smile."
+    )
+    if len(labels) == 1:
+        framing = (
+            f" Single subject: only {labels[0]} appears — exactly one character, "
+            f"no duplicate, cloned, mirrored, or background copies of the character."
+        )
+    elif len(labels) > 1:
+        framing = (
+            f" Exactly these {len(labels)} characters appear ({', '.join(labels)}) — "
+            f"no extra, duplicate, or cloned characters."
+        )
+    else:
+        framing = ""
     world = f" World: {bible.world_anchor.strip()}" if bible.world_anchor else ""
-    return f"{bible.style_anchor}. In this exact style: {who}{scene.image_prompt.strip()}{world}"
+    return f"{bible.style_anchor}. In this exact style: {who}{scene.image_prompt.strip()}{emotion}{framing}{world}"
 
 
 def _scene_reference_paths(characters: list[Character], settings: Settings) -> list[str]:
@@ -131,9 +169,15 @@ def generate_images(settings: Settings, episode: Episode, bible: SeriesBible, ep
             print(f"[{episode.episode_id}] image scene {scene.id:02d}: exists, skipping")
             continue
 
-        characters = _characters_in_scene(scene, bible)
+        characters = _characters_in_scene(scene, episode, bible)
         prompt = _build_prompt(scene, bible, characters, use_trigger)
         references = _scene_reference_paths(characters, settings)
+        if settings.image.use_references and not references:
+            raise ValueError(
+                f"scene {scene.id:02d}: Flux2KleinEdit requires at least one reference image, but none were "
+                f"found for {[c.name for c in characters] or 'this scene'}. Run scripts/establish_characters.py "
+                f"--series {episode.series_id} first, or disable image.use_references."
+            )
         seed_key = characters[0].name if characters else episode.series_id
         seed = _stable_seed(episode.series_id, seed_key, str(scene.id))
 
