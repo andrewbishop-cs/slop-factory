@@ -9,7 +9,8 @@
       "personality": "brainy, calculating, over-prepared; wins by out-engineering the course with gadgets, telemetry, and clever lines",
       "reference_image": "assets/characters/circuit/ref.png",
       "lora_trigger": "sscircuit",
-      "voice": "am_puck"
+      "voice": "am_puck",
+      "detect_phrase": "monkey"
     },
     {
       "name": "riptide",
@@ -17,7 +18,8 @@
       "personality": "reckless, fearless, rides on pure instinct and adrenaline; takes insane lines no sane surfer would attempt",
       "reference_image": "assets/characters/riptide/ref.png",
       "lora_trigger": "ssriptide",
-      "voice": "am_fenrir"
+      "voice": "am_fenrir",
+      "detect_phrase": "cat"
     }
   ],
   "plot_state": {

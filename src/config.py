@@ -79,6 +79,17 @@ class CaptionsConfig(BaseModel):
     active_color: str = "yellow"
 
 
+class FramingConfig(BaseModel):
+    """Vision-guided Ken Burns (M5). When enabled, a local moondream2 pass locates the
+    focal character per scene and the shot pushes in toward them; otherwise the scripted
+    `motion.move` is used as-is."""
+
+    enabled: bool = True
+    target_fill: float = 0.6  # the focal box should occupy ~this fraction of the frame at the end of the push-in
+    min_zoom: float = 1.15  # ensure a noticeable move even when the subject is already large
+    max_zoom: float = 1.6
+
+
 class AudioConfig(BaseModel):
     target_lufs: float = -14
     true_peak: float = -1.5
@@ -97,6 +108,7 @@ class Settings(BaseModel):
     tts: TTSConfig = TTSConfig()
     music: MusicConfig = MusicConfig()
     captions: CaptionsConfig = CaptionsConfig()
+    framing: FramingConfig = FramingConfig()
     audio: AudioConfig = AudioConfig()
     llm: LLMConfig = LLMConfig()
 

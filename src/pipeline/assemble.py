@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 from src.config import Settings
-from src.pipeline import images, logging_setup, timing
+from src.pipeline import framing, images, logging_setup, timing
 from src.schemas import Episode
 
 AUDIO_RATE = 48_000
@@ -110,6 +110,7 @@ def assemble(settings: Settings, episode: Episode, episode_dir: Path) -> Path:
 
     fps, w, h = settings.video.fps, settings.video.width, settings.video.height
     durations = timing.shot_durations(episode, audio_dir)
+    framings = framing.compute_framing(settings, episode, episode_dir)
 
     # 1. Ken Burns clip per scene (video only) + 3. per-scene audio segment.
     clips: list[Path] = []
@@ -117,8 +118,12 @@ def assemble(settings: Settings, episode: Episode, episode_dir: Path) -> Path:
     for scene, dur in zip(episode.scenes, durations):
         img = images_dir / f"scene_{scene.id:02d}.png"
         clip = work / f"clip_{scene.id:02d}.mp4"
-        log.info("assemble: ken burns scene %02d (%s, %.2fs)", scene.id, scene.motion.move, dur)
-        images.ken_burns(img, scene.motion.move, dur, clip, fps=fps, width=w, height=h)
+        fr = framings.get(scene.id)
+        start = tuple(fr["start"]) if fr else None
+        end = tuple(fr["end"]) if fr else None
+        descr = f"focus {end}" if fr else f"scripted {scene.motion.move}"
+        log.info("assemble: ken burns scene %02d (%s, %.2fs)", scene.id, descr, dur)
+        images.ken_burns(img, scene.motion.move, dur, clip, fps=fps, width=w, height=h, frame_start=start, frame_end=end)
         clips.append(clip)
 
         seg = work / f"seg_{scene.id:02d}.wav"

@@ -224,6 +224,29 @@ def _zoompan_filter(move: str, frames: int, width: int, height: int, fps: int) -
     return f"scale=iw*2:ih*2,zoompan=z='{z}':x='{x}':y='{y}':d={frames}:s={width}x{height}:fps={fps}"
 
 
+def _zoompan_explicit(
+    start: tuple[float, float, float],
+    end: tuple[float, float, float],
+    frames: int,
+    width: int,
+    height: int,
+    fps: int,
+) -> str:
+    """Ken Burns between two explicit framings `(center_x, center_y, zoom)` in normalized
+    coords — used by the vision-guided pass to push in toward a focal character. Expressions
+    stay comma-free (zoompan params split on ':' and filters on ',') so the -vf arg is safe."""
+    cx0, cy0, z0 = start
+    cx1, cy1, z1 = end
+    n = max(1, frames - 1)
+    z = f"{z0}+({z1}-{z0})*on/{n}"
+    cx = f"{cx0}+({cx1}-{cx0})*on/{n}"
+    cy = f"{cy0}+({cy1}-{cy0})*on/{n}"
+    # top-left of the crop = center*size - half the (size/zoom) visible window; zoompan also clamps to edges.
+    x = f"iw*({cx})-iw/(2*({z}))"
+    y = f"ih*({cy})-ih/(2*({z}))"
+    return f"scale=iw*2:ih*2,zoompan=z='{z}':x='{x}':y='{y}':d={frames}:s={width}x{height}:fps={fps}"
+
+
 def ken_burns(
     image_path: Path,
     move: str,
@@ -233,10 +256,19 @@ def ken_burns(
     fps: int,
     width: int,
     height: int,
+    frame_start: tuple[float, float, float] | None = None,
+    frame_end: tuple[float, float, float] | None = None,
 ) -> Path:
-    """Render a still into a `duration_sec` Ken Burns clip at `out_path` (H.264)."""
+    """Render a still into a `duration_sec` Ken Burns clip at `out_path` (H.264).
+
+    With `frame_start`/`frame_end` (each `(center_x, center_y, zoom)`, normalized) the motion
+    interpolates between them (vision-guided framing); otherwise it uses the scripted `move`.
+    """
     frames = max(2, round(duration_sec * fps))
-    vf = _zoompan_filter(move, frames, width, height, fps)
+    if frame_start is not None and frame_end is not None:
+        vf = _zoompan_explicit(frame_start, frame_end, frames, width, height, fps)
+    else:
+        vf = _zoompan_filter(move, frames, width, height, fps)
     subprocess.run(
         [
             "ffmpeg", "-y", "-loop", "1", "-i", str(image_path),

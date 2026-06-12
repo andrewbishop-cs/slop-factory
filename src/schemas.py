@@ -87,6 +87,7 @@ class Character(BaseModel):
     reference_image: str | None = None  # canonical "character sheet" used for multi-reference consistency (M2)
     lora_trigger: str | None = None  # rare token this character maps to inside a trained LoRA, e.g. "ssriptide"
     voice: str | None = None  # path to a sample wav, or a Kokoro voice id
+    detect_phrase: str | None = None  # short noun for the vision detector to localize this character, e.g. "monkey" (M5 Ken Burns framing)
 
 
 class PlotState(BaseModel):
