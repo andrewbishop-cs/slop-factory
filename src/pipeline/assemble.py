@@ -15,16 +15,53 @@ by later milestones; intermediates are kept under `_assemble/` for debugging.
 
 from __future__ import annotations
 
+import argparse
 import subprocess
 import sys
 from pathlib import Path
 
-from src.config import Settings
+from src.config import Settings, load_settings
 from src.pipeline import framing, images, logging_setup, timing
 from src.schemas import Episode
 
 AUDIO_RATE = 48_000
 AUDIO_LAYOUT = "stereo"
+
+# Intensity → music-bed loudness. The per-scene bed gain is `gain_under_voice` scaled by a
+# multiplier that ramps with scene intensity (calm setup quiet, climax loud); dialogue scenes
+# get an extra duck so the spoken line stays crisp. Levels step at scene cuts (masked by the
+# visual cut), so no crossfade is needed. Sidechain ducking still applies on top.
+_BED_MULT_MIN = 0.8   # multiplier at intensity 0
+_BED_MULT_MAX = 1.4    # multiplier at intensity 1
+_BED_DIALOGUE_DUCK = 0.6  # extra attenuation while a character is speaking
+
+_OPEN_QUOTE = "\"“'‘"
+_CLOSE_QUOTE = "\"”'’"
+
+
+def _is_dialogue(text: str) -> bool:
+    """A fully-quoted line (a character speaking) — mirrors tts._voice_for_scene without
+    importing the heavy TTS module at assemble time."""
+    t = text.strip()
+    return len(t) >= 2 and t[0] in _OPEN_QUOTE and t[-1] in _CLOSE_QUOTE
+
+
+def _music_volume_expr(episode: Episode, durations: list[float], base_gain: float) -> str:
+    """Build a piecewise-constant ffmpeg volume expression (function of time `t`) giving the
+    music bed a per-scene gain driven by `intensity` (louder on action, quieter under dialogue)."""
+    offsets = timing.scene_offsets(durations)
+    gains: list[float] = []
+    for scene in episode.scenes:
+        mult = _BED_MULT_MIN + (_BED_MULT_MAX - _BED_MULT_MIN) * scene.intensity
+        if _is_dialogue(scene.narration_text):
+            mult *= _BED_DIALOGUE_DUCK
+        gains.append(round(base_gain * mult, 4))
+
+    expr = f"{gains[-1]}"  # default (also covers the music tail past the last scene)
+    for i in reversed(range(len(gains))):
+        start, end = offsets[i], offsets[i] + durations[i]
+        expr = f"if(between(t,{start:.3f},{end:.3f}),{gains[i]},{expr})"
+    return expr
 
 
 def _preflight(episode: Episode, episode_dir: Path) -> None:
@@ -64,6 +101,40 @@ def _scene_audio_segment(wav: Path, duration: float, out: Path) -> None:
         _run(["ffmpeg", "-y", "-i", str(wav), "-af", "apad", *common])
     else:
         _run(["ffmpeg", "-y", "-f", "lavfi", "-i", f"anullsrc=channel_layout={AUDIO_LAYOUT}:sample_rate={AUDIO_RATE}", *common])
+
+
+def _mix_music(settings: Settings, narration: Path, music: Path, out: Path, bed_volume: str) -> Path:
+    """Mix the music bed under the narration into one track the length of the narration.
+
+    `bed_volume` is a time-varying ffmpeg volume expression (per-scene, intensity-driven).
+    The bed is looped to cover the body and trimmed by `amix duration=first`; with `duck`
+    on it's sidechain-compressed against the VO so it dips further while someone speaks.
+    `amix normalize=0` keeps full levels — the final −14 LUFS pass handles loudness.
+    """
+    fmt = f"aformat=sample_rates={AUDIO_RATE}:channel_layouts={AUDIO_LAYOUT}"
+    bed = f"volume=eval=frame:volume='{bed_volume}'"
+    if settings.music.duck:
+        graph = (
+            f"[0:a]{fmt},asplit=2[narrk][narrmix];"
+            f"[1:a]{fmt},{bed}[bed];"
+            f"[bed][narrk]sidechaincompress=threshold=0.02:ratio=6:attack=15:release=250[duck];"
+            f"[narrmix][duck]amix=inputs=2:duration=first:normalize=0[aout]"
+        )
+    else:
+        graph = (
+            f"[0:a]{fmt}[narr];"
+            f"[1:a]{fmt},{bed}[bed];"
+            f"[narr][bed]amix=inputs=2:duration=first:normalize=0[aout]"
+        )
+    _run([
+        "ffmpeg", "-y",
+        "-i", str(narration.resolve()),
+        "-stream_loop", "-1", "-i", str(music.resolve()),
+        "-filter_complex", graph, "-map", "[aout]",
+        "-c:a", "pcm_s16le", "-ar", str(AUDIO_RATE), "-ac", "2",
+        str(out.resolve()),
+    ])
+    return out
 
 
 def _concat(segments: list[Path], list_file: Path, out: Path, copy: bool = True) -> None:
@@ -136,6 +207,16 @@ def assemble(settings: Settings, episode: Episode, episode_dir: Path) -> Path:
     narration = work / "narration.wav"
     _concat(segments, work / "segs.txt", narration)
 
+    # 3b. Mix the music bed under the narration (ducked); fall back to dry VO if absent.
+    music_src = audio_dir / "music.wav"
+    audio_track = narration
+    if music_src.exists():
+        bed_volume = _music_volume_expr(episode, durations, settings.music.gain_under_voice)
+        log.info("assemble: mixing music bed (intensity-driven, duck=%s)", settings.music.duck)
+        audio_track = _mix_music(settings, narration, music_src, work / "mixed.wav", bed_volume)
+    else:
+        log.warning("assemble: audio/music.wav missing — rendering with narration only (run the music stage)")
+
     # 4. Burn captions (run from episode_dir so the .ass path needs no escaping) + mux + encode.
     captions = episode_dir / "captions.ass"
     pre = work / "pre.mp4"
@@ -144,7 +225,7 @@ def assemble(settings: Settings, episode: Episode, episode_dir: Path) -> Path:
     # so the .ass filename needs no filtergraph escaping.
     _run(
         [
-            "ffmpeg", "-y", "-i", str(body.resolve()), "-i", str(narration.resolve()),
+            "ffmpeg", "-y", "-i", str(body.resolve()), "-i", str(audio_track.resolve()),
             *vf,
             "-map", "0:v:0", "-map", "1:a:0",
             "-c:v", "h264_videotoolbox", "-b:v", "10M", "-pix_fmt", "yuv420p", "-profile:v", "high",
@@ -164,3 +245,21 @@ def assemble(settings: Settings, episode: Episode, episode_dir: Path) -> Path:
     _write_caption_txt(episode, episode_dir / "caption.txt")
     log.info("assemble: wrote %s + caption.txt", final.name)
     return final
+
+
+def main() -> None:
+    """Run the assemble stage standalone (bridges around the not-yet-built M7 hook stage)."""
+    parser = argparse.ArgumentParser(description="Assemble final.mp4 for an existing episode.")
+    parser.add_argument("--episode", required=True, help="episode id, e.g. sewer-surfers_ep_0001")
+    args = parser.parse_args()
+
+    settings = load_settings()
+    episode_dir = settings.episodes_dir() / args.episode
+    episode = Episode.model_validate_json((episode_dir / "episode.json").read_text())
+    logging_setup.setup_episode_logging(episode_dir)
+    out = assemble(settings, episode, episode_dir)
+    print(f"assemble: {out}")
+
+
+if __name__ == "__main__":
+    main()

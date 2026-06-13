@@ -69,7 +69,14 @@ class TTSConfig(BaseModel):
 
 class MusicConfig(BaseModel):
     backend: str = "ace-step"
-    gain_under_voice: float = 0.18
+    gain_under_voice: float = 0.18  # base music level under narration (linear gain) before sidechain ducking
+    duck: bool = True  # sidechain-compress the bed against the narration so it dips while the VO speaks
+    # ACE-Step runs in its own isolated venv (separate from the main pinned stack); music.py shells out to it.
+    python: Path = Path("models/acestep/venv/bin/python")
+    gen_script: Path = Path("scripts/acestep_gen.py")
+    checkpoint_dir: Path = Path("models/acestep/checkpoints")
+    infer_steps: int = 30
+    seed: int = 42
 
 
 class CaptionsConfig(BaseModel):

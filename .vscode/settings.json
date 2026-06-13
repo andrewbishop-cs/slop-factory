@@ -1,0 +1,15 @@
+{
+  "files.watcherExclude": {
+    "**/models/**": true,
+    "**/episodes/**": true,
+    "**/ready_to_post/**": true
+  },
+  "search.exclude": {
+    "**/models/**": true,
+    "**/episodes/**": true,
+    "**/ready_to_post/**": true
+  },
+  "files.exclude": {
+    "**/__pycache__": true
+  }
+}

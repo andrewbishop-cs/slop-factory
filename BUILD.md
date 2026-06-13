@@ -498,11 +498,15 @@ Build in order. After each milestone: run **Test**, confirm **Expected**, then *
 - **Expected:** a **watchable** 1080×1920@30 H.264/AAC video, ≥62s, captions synced to narration. **Watch the whole thing.** This is the iterate-here moment.
 - **🛑 Checkpoint:** commit `"M5: watchable body video"`. Stop.
 
-**M6 — Music**
-- **Install (first):** clone + editable-install ACE-Step (`git clone https://github.com/ace-step/ACE-Step models/ACE-Step && uv pip install -e models/ACE-Step`); first run lazy-downloads `ACE-Step/ACE-Step-v1-3.5B`. **Note:** `stable-audio-tools` (the Stable Audio Open path) is *not viable on this Python 3.12 env* — its legacy pins fail to build (confirmed during M0 setup). ACE-Step is the only music backend; if it proves painful, the fallback is a separate 3.11 env, not a pip swap here.
-- **Build:** `music.py` (ACE-Step) keyed to scene `mood`/`intensity`; mix under narration at `gain_under_voice`; `ffmpeg-normalize` to −14 LUFS.
-- **Test:** re-run assemble with music.
-- **Expected:** `final.mp4` now has a mood-matched bed under the narration, properly leveled.
+**M6 — Music** *(done — ACE-Step in an isolated venv, shelled out to)*
+- **Install (first):** ACE-Step is **NOT** installed into the main `.venv` (its torch/transformers pins would fight the mflux/kokoro/whisperx stack). Instead it lives in its own venv:
+  - `git clone --depth 1 https://github.com/ace-step/ACE-Step models/acestep/ACE-Step`
+  - `uv venv models/acestep/venv --python 3.12 && uv pip install --python models/acestep/venv/bin/python -e models/acestep/ACE-Step`
+  - **`uv pip install --python models/acestep/venv/bin/python torchcodec`** — required: torchaudio ≥2.9 routes `torchaudio.save()` through TorchCodec, so the vendored ACE-Step save path fails with `ImportError: TorchCodec is required` without it.
+  - First generation lazy-downloads the 3.5B checkpoint (~10GB) to `models/acestep/checkpoints`. ACE-Step auto-selects **MPS** on Apple Silicon and forces float32 there. License: Apache-2.0. **Note:** `stable-audio-tools` (Stable Audio Open) is *not viable on Python 3.12* — legacy pins fail to build. **Don't run music generation concurrently with FLUX image gen — loading both 3.5B+ models at once OOMs.**
+- **Build:** `scripts/acestep_gen.py` is a dependency-light standalone generator that runs *inside the isolated venv* (imports only `acestep` + stdlib). `music.py` (main venv) builds an instrumental prompt from `music.global_mood`/`bpm_hint` + the average scene `intensity`, then shells out to `settings.music.python` to render `audio/music.wav` (one bed ≥ body length; idempotent). `assemble.py` mixes it under the narration: a per-scene, intensity-driven `volume` envelope (louder on action peaks, extra duck on dialogue scenes, stepped at scene cuts) + optional sidechain ducking against the VO (`music.duck`), then the existing `ffmpeg-normalize` −14 LUFS pass. `assemble.py` also gained a standalone CLI (`python -m src.pipeline.assemble --episode <id>`) to bridge around the not-yet-built M7 hook stage.
+- **Test:** `--force music --until music`, then `python -m src.pipeline.assemble --episode <id>`.
+- **Expected:** `final.mp4` has a mood-matched bed under the narration, swelling on high-intensity scenes and dipping under dialogue, integrated ≈ −14 LUFS. *(Verified on `sewer-surfers_ep_0001`.)*
 - **🛑 Checkpoint:** commit `"M6: music score"`. Stop.
 
 **M7 — Hook** *(riskiest dep — library first)*
