@@ -26,9 +26,11 @@
     "active_threads": [
       "Circuit and Riptide are the scene's two top riders; the season-long duel for the Sewer Crown is just beginning"
     ],
-    "last_cliffhanger": "Dead even on day one — but the Crown only fits one head. Whose board breaks first?",
+    "last_cliffhanger": "The board broke at the line — so did Riptide beat the time, or did the enemy's machine cheat him out of it?",
     "episode_log": [
-      "sewer-surfers_ep_0001: First Drop"
+      "sewer-surfers_ep_0001: First Drop",
+      "sewer-surfers_ep_0002: The Board That Broke",
+      "sewer-surfers_ep_0003: Riding the Enemy's Board"
     ]
   },
   "world_anchor": "Riders ride custom finned hydro-surfboards, standing or crouched, surfing fast-rushing water through neon storm drains and flood tunnels. The vehicles are always water surfboards — never motorcycles, bikes, wheels, handlebars, rails, train tracks, or cars; the surface is always rushing water, never roads or tracks.",
