@@ -101,9 +101,9 @@ def run_stage(stage, settings, bible, episode_dir, prompt):
     elif stage == "music":
         music.generate_music(settings, episode, episode_dir)
     elif stage == "hook":
-        hook.generate_hook(settings, episode, episode_dir)
+        hook.generate_hook(settings, episode, bible, episode_dir)
     elif stage == "assemble":
-        assemble.assemble(settings, episode, episode_dir)
+        assemble.assemble(settings, episode, episode_dir, bible)
     elif stage == "qc":
         report = qc.run_qc(settings, episode, episode_dir)
         print(json.dumps(report, indent=2))

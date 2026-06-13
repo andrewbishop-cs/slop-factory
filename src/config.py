@@ -53,9 +53,18 @@ class ImageConfig(BaseModel):
 
 
 class HookConfig(BaseModel):
-    backend: str = "ltx"
+    backend: str = "ltx"  # ltx (generate) | library (pick a clip) | kenburns (image-motion only)
     max_seconds: float = 4
-    allow_library_fallback: bool = True
+    allow_library_fallback: bool = True  # on ltx failure, fall back to the image-motion ken-burns hook
+    # LTX-Video image-to-video (diffusers). Conditions on a FLUX keyframe so the motion clip
+    # stays on-style; rendered small then upscaled to video.{width,height}. Heavy on MPS — the
+    # hook stage frees FLUX before loading LTX, and never runs concurrently with image gen.
+    model: str = "Lightricks/LTX-Video"
+    steps: int = 30
+    gen_width: int = 480  # LTX gen resolution (÷32); upscaled+cropped to the video size
+    gen_height: int = 832
+    frame_rate: int = 24  # LTX native rate; the clip is retimed to video.fps on encode
+    seed: int = 42
 
 
 class TTSConfig(BaseModel):

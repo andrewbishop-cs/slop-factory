@@ -509,10 +509,15 @@ Build in order. After each milestone: run **Test**, confirm **Expected**, then *
 - **Expected:** `final.mp4` has a mood-matched bed under the narration, swelling on high-intensity scenes and dipping under dialogue, integrated ≈ −14 LUFS. *(Verified on `sewer-surfers_ep_0001`.)*
 - **🛑 Checkpoint:** commit `"M6: music score"`. Stop.
 
-**M7 — Hook** *(riskiest dep — library first)*
-- **Build:** `hook.py` — **start with library-clip selection** from `assets/hook_library/`; then add LTX-Video generation behind `allow_library_fallback`. Add the SFX stinger. Prepend hook to `final.mp4`.
-- **Test:** run the full pipeline; open `final.mp4`.
-- **Expected:** video opens with the ≤4s hook + stinger, then the scored body; total ≥62s. (If LTX is flaky on MPS, library fallback still produces a valid hook.)
+**M7 — Hook** *(done — keyframe-conditioned LTX i2v, with an image-motion fallback)*
+- **Build:** `hook.py` produces `hook.mp4` (silent portrait, ≤ `hook.max_seconds`). Three backends:
+  - **`ltx` (default):** render a FLUX **keyframe** from `episode.hook.prompt` via `images.generate_keyframe` (reuses the M2 character + style anchoring, so the opener is *on-model* — LTX text-to-video alone would look like a different show), free FLUX, then animate that keyframe with **LTX-Video image-to-video** (`diffusers` `LTXImageToVideoPipeline`, MPS, bf16). Gen res `hook.gen_width×gen_height` (÷32), `num_frames` snapped to LTX's `8k+1` within the cap, then upscaled+cropped to the video size. First run lazy-downloads `Lightricks/LTX-Video`. On **any** LTX failure (and `allow_library_fallback`) it falls back to the kenburns hook below, so the riskiest dep never hard-fails a run.
+  - **`kenburns`:** skip LTX entirely — an aggressive push-in (+ slight rise) on the keyframe via `images.ken_burns`. Reliable, fast, no extra model.
+  - **`library`** (or `hook.type == "library"`): pick `hook.library_clip` / any clip from `assets/hook_library/`.
+  - **OOM safety:** the hook stage frees FLUX + empties the MPS cache (`_free_mps`) **before** LTX loads — FLUX + LTX co-resident is what OOMs. Don't run image gen concurrently with the hook stage. (Verified fine sequentially on a 64GB M5 Max.)
+- **Prepend + stinger (in `assemble.py`):** when `hook.mp4` exists, `_build_hook_segment` burns a minimal "show open" — the **series title** (`bible.display_name`) at the top and the **episode number** at the bottom (Impact font, outlined + shadowed), deliberately **caption-free** so the eye stays on the video — and adds a **synthesized riser→impact stinger** (filtered pink-noise whoosh that swells + a sub-bass thump ramping in near the cut — no SFX library needed), then `_concat_av` re-encodes hook+body into one clip before the `ffmpeg-normalize` −14 LUFS pass. Captions stay body-relative because the hook is joined *after* the body is captioned. (`assemble` now takes the optional `bible` for the title; the standalone CLI loads it from `series_id`.)
+- **Test:** `--force hook --until hook` (or `rm hook.mp4` first, since the stage is idempotent), then `python -m src.pipeline.assemble --episode <id>`. The kenburns fallback + the full prepend/stinger/concat/normalize chain were verified end-to-end (hook 3.7s + body, AAC 48 kHz stereo, normalized).
+- **Expected:** video opens with the ≤4s hook + stinger, then the scored body; total ≥62s. (If LTX is flaky on MPS, the kenburns fallback still produces a valid hook.)
 - **🛑 Checkpoint:** commit `"M7: hook + stinger"`. Stop.
 
 **M8 — QC gate + Review UI**
@@ -536,6 +541,8 @@ Tracked here so they aren't lost; pick up after Phase 0 core is green.
 **Intelligent Ken Burns framing — known limitations.** The M5 framing pass (`src/pipeline/framing.py`, moondream2) picks a per-scene focal box and pushes the Ken Burns move toward it. Verified on `ep_0001`: **8/13 scenes targeted** (scene 1 → Circuit, scene 5 → Circuit's line, scene 6 → Riptide's line); the scene-1 end frame lands its push-in squarely on the detected character. Two honest gaps:
 - **(a) No true intra-shot A→B speaker panning.** Panning from one speaker to another mid-shot needs multi-speaker scenes, which is a schema change. Today `script_gen` already splits a dialogue exchange into separate single-speaker shots, so per-shot targeting covers most of the intended effect — full intra-shot panning is a nice-to-have, not required.
 - **(b) Unnamed group shots fall back to scripted moves.** Scenes phrased as a group ("both riders", "the tunnels merge") have no single focal target, so framing defers to the scripted `motion.move` rather than guessing. This is intended behavior, not a bug.
+
+**Hook SFX stinger — synthesized, not real SFX.** The M7 stinger is a generic synthesized riser→impact (filtered pink-noise whoosh + sub-bass thump) built in `assemble._build_hook_segment`. The script's `episode.hook.sfx` *description* (e.g. "metal groan into explosive water roar") is **not** rendered to matching audio — that needs a text-to-SFX model we don't ship. Post-v0: generate the described SFX (or curate a small `assets/sfx/` library keyed off `hook.sfx`). The generic stinger is a fine placeholder and not a blocker.
 
 ---
 

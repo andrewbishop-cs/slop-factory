@@ -30,7 +30,7 @@ from mflux.models.flux2.variants import Flux2KleinEdit
 from PIL import Image
 
 from src.config import PROJECT_ROOT, Settings
-from src.schemas import Character, Episode, Scene, SeriesBible
+from src.schemas import Character, Episode, Motion, Scene, SeriesBible
 
 _MOVES = ("push_in", "pull_out", "pan_left", "pan_right", "pan_up", "pan_down")
 
@@ -198,6 +198,60 @@ def generate_images(settings: Settings, episode: Episode, bible: SeriesBible, ep
         _center_crop(result.image, target_w, target_h).save(out)
 
     return outputs
+
+
+def generate_keyframe(
+    settings: Settings,
+    episode: Episode,
+    bible: SeriesBible,
+    prompt_text: str,
+    out_path: Path,
+    *,
+    seed_key: str = "hook",
+) -> Path:
+    """Render one keyframe PNG from a free-form prompt (used by the hook stage).
+
+    Reuses the scene prompt-anchoring + reference conditioning so the frame keeps character
+    identity and series style. The FLUX instance is local and falls out of scope on return,
+    so the heavy model is freed before the hook stage loads LTX. Idempotent.
+    """
+    if out_path.exists():
+        return out_path
+    # A throwaway single-shot scene to reuse the anchoring/reference machinery.
+    scene = Scene(
+        id=1,
+        image_prompt=prompt_text,
+        motion=Motion(move="push_in", duration_sec=1.0),
+        narration_text="",
+        mood=episode.music.global_mood,
+        intensity=1.0,
+        duration_sec=1.0,
+    )
+    characters = _characters_in_scene(scene, episode, bible)
+    prompt = _build_prompt(scene, bible, characters, _use_trigger(bible))
+    references = _scene_reference_paths(characters, settings)
+    if settings.image.use_references and not references:
+        raise ValueError(
+            f"hook keyframe: Flux2KleinEdit requires at least one reference image, but none were found "
+            f"for {[c.name for c in characters] or 'this episode'}. Run scripts/establish_characters.py first."
+        )
+
+    target_w, target_h = settings.video.width, settings.video.height
+    gen_w, gen_h = _gen_dims(target_w, target_h)
+    seed = _stable_seed(episode.series_id, seed_key, episode.episode_id)
+    model = _load_model(settings, bible)
+    result = model.generate_image(
+        seed=seed,
+        prompt=prompt,
+        num_inference_steps=settings.image.steps,
+        width=gen_w,
+        height=gen_h,
+        guidance=settings.image.guidance,
+        image_paths=references or None,
+    )
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    _center_crop(result.image, target_w, target_h).save(out_path)
+    return out_path
 
 
 def _zoompan_filter(move: str, frames: int, width: int, height: int, fps: int) -> str:

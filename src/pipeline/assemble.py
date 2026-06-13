@@ -8,21 +8,23 @@ Builds the watchable body video with ffmpeg:
      length) and concatenate into one track the exact length of the video — this is what
      keeps audio locked to the burned captions, which use the same `timing` offsets;
   4. burn `captions.ass` and mux the narration, encoding h264_videotoolbox 1080×1920@30 + AAC;
-  5. loudness-normalise to −14 LUFS / −1.5 dBTP with ffmpeg-normalize.
-Also writes `caption.txt` (description + hashtags + AI-label note). Hook + music are added
-by later milestones; intermediates are kept under `_assemble/` for debugging.
+  5. prepend the M7 hook opener (hook_text burned + SFX stinger) when `hook.mp4` exists;
+  6. loudness-normalise to −14 LUFS / −1.5 dBTP with ffmpeg-normalize.
+Also writes `caption.txt` (description + hashtags + AI-label note). The music bed (M6) is
+mixed under the narration in step 3b; intermediates are kept under `_assemble/` for debugging.
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
 
-from src.config import Settings, load_settings
+from src.config import Settings, load_series_bible, load_settings
 from src.pipeline import framing, images, logging_setup, timing
-from src.schemas import Episode
+from src.schemas import Episode, SeriesBible
 
 AUDIO_RATE = 48_000
 AUDIO_LAYOUT = "stereo"
@@ -37,6 +39,13 @@ _BED_DIALOGUE_DUCK = 0.6  # extra attenuation while a character is speaking
 
 _OPEN_QUOTE = "\"“'‘"
 _CLOSE_QUOTE = "\"”'’"
+
+# Bold display font for the burned-in hook text (the caption font asset is optional/empty).
+_HOOK_FONTS = (
+    "/System/Library/Fonts/Supplemental/Impact.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    "/System/Library/Fonts/HelveticaNeue.ttc",
+)
 
 
 def _is_dialogue(text: str) -> bool:
@@ -137,6 +146,115 @@ def _mix_music(settings: Settings, narration: Path, music: Path, out: Path, bed_
     return out
 
 
+def _probe_duration(path: Path) -> float:
+    proc = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1", str(path.resolve())],
+        capture_output=True, text=True,
+    )
+    try:
+        return float(proc.stdout.strip())
+    except ValueError:
+        return 0.0
+
+
+def _hook_font() -> str:
+    for f in _HOOK_FONTS:
+        if Path(f).exists():
+            return f
+    return _HOOK_FONTS[0]
+
+
+def _series_title(episode: Episode, bible: SeriesBible | None) -> str:
+    if bible and bible.display_name:
+        return bible.display_name
+    return re.sub(r"[-_]+", " ", episode.series_id).title()
+
+
+def _episode_number(episode: Episode) -> int | None:
+    match = re.search(r"(\d+)$", episode.episode_id)
+    return int(match.group(1)) if match else None
+
+
+def _drawtext(font: str, text_file: Path, fontsize: int, y: str, color: str = "white") -> str:
+    return (
+        f"drawtext=fontfile='{font}':textfile='{text_file.resolve()}'"
+        f":fontcolor={color}:fontsize={fontsize}:borderw={max(2, round(fontsize * 0.1))}:bordercolor=black"
+        f":shadowcolor=black@0.6:shadowx=4:shadowy=4:line_spacing=16"
+        f":x=(w-text_w)/2:y={y}:fix_bounds=1"
+    )
+
+
+def _build_hook_segment(episode: Episode, bible: SeriesBible | None, hook_clip: Path, work: Path, fps: int, w: int, h: int) -> Path:
+    """Burn the hook overlays onto `hook_clip` + add a synthesized riser→impact stinger.
+
+    A minimal "show open": series title at the top, episode number at the bottom, and the hook
+    deliberately free of the running karaoke captions so the eye stays on the video. The stinger
+    (filtered pink-noise whoosh that swells + a sub-bass thump ramping in near the cut) gives the
+    opener energy without needing an SFX library; real SFX from `hook.sfx` is deferred. Returns a
+    `w×h@fps` clip with AAC audio, ready to prepend.
+    """
+    out = work / "hookfull.mp4"
+    dur = _probe_duration(hook_clip) or episode.hook.duration_sec
+    font = _hook_font()
+
+    title_tf = work / "hook_title.txt"
+    title_tf.write_text(_series_title(episode, bible).upper() + "\n", encoding="utf-8")
+    layers = [_drawtext(font, title_tf, round(h * 0.040), "h*0.07")]
+    epnum = _episode_number(episode)
+    if epnum is not None:
+        ep_tf = work / "hook_ep.txt"
+        ep_tf.write_text(f"EPISODE {epnum}\n", encoding="utf-8")
+        layers.append(_drawtext(font, ep_tf, round(h * 0.034), "h*0.88", color="yellow"))
+    drawtext = ",".join(layers)
+
+    whoosh = (
+        f"[1:a]highpass=f=180,lowpass=f=6000,"
+        f"volume=eval=frame:volume='0.12+0.7*t/{dur:.3f}'[whoosh]"
+    )
+    sub = f"[2:a]volume=eval=frame:volume='0.55*pow(t/{dur:.3f}\\,4)'[sub]"
+    mix = (
+        f"[whoosh][sub]amix=inputs=2:normalize=0,"
+        f"afade=t=out:st={max(0.0, dur - 0.12):.3f}:d=0.12,"
+        f"aformat=sample_rates={AUDIO_RATE}:channel_layouts={AUDIO_LAYOUT}[a]"
+    )
+    graph = f"[0:v]{drawtext}[v];{whoosh};{sub};{mix}"
+    _run([
+        "ffmpeg", "-y",
+        "-i", str(hook_clip.resolve()),
+        "-f", "lavfi", "-i", f"anoisesrc=color=pink:amplitude=0.7:duration={dur:.3f}",
+        "-f", "lavfi", "-i", f"sine=frequency=60:duration={dur:.3f}",
+        "-filter_complex", graph, "-map", "[v]", "-map", "[a]", "-t", f"{dur:.3f}",
+        "-c:v", "h264_videotoolbox", "-b:v", "10M", "-pix_fmt", "yuv420p", "-profile:v", "high", "-r", str(fps),
+        "-c:a", "aac", "-b:a", "192k", "-ar", str(AUDIO_RATE), "-ac", "2",
+        "-movflags", "+faststart", str(out.resolve()),
+    ])
+    return out
+
+
+def _concat_av(parts: list[Path], out: Path, fps: int, w: int, h: int) -> None:
+    """Concatenate audio+video clips by re-encoding (robust to per-clip codec/timebase
+    differences — the hook and body are encoded separately). Normalizes each input first."""
+    inputs: list[str] = []
+    for p in parts:
+        inputs += ["-i", str(p.resolve())]
+    n = len(parts)
+    prep = "".join(
+        f"[{i}:v:0]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},"
+        f"setsar=1,fps={fps},format=yuv420p[v{i}];"
+        f"[{i}:a:0]aformat=sample_rates={AUDIO_RATE}:channel_layouts={AUDIO_LAYOUT},aresample=async=1[a{i}];"
+        for i in range(n)
+    )
+    streams = "".join(f"[v{i}][a{i}]" for i in range(n))
+    graph = f"{prep}{streams}concat=n={n}:v=1:a=1[v][a]"
+    _run([
+        "ffmpeg", "-y", *inputs, "-filter_complex", graph, "-map", "[v]", "-map", "[a]",
+        "-c:v", "h264_videotoolbox", "-b:v", "10M", "-pix_fmt", "yuv420p", "-profile:v", "high", "-r", str(fps),
+        "-c:a", "aac", "-b:a", "192k", "-ar", str(AUDIO_RATE), "-ac", "2",
+        "-movflags", "+faststart", str(out.resolve()),
+    ])
+
+
 def _concat(segments: list[Path], list_file: Path, out: Path, copy: bool = True) -> None:
     list_file.write_text("".join(f"file '{p.resolve()}'\n" for p in segments))
     cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file)]
@@ -169,8 +287,11 @@ def _write_caption_txt(episode: Episode, out: Path) -> None:
     out.write_text("\n".join(parts).rstrip() + "\n", encoding="utf-8")
 
 
-def assemble(settings: Settings, episode: Episode, episode_dir: Path) -> Path:
-    """Render `final.mp4` + `caption.txt` in `episode_dir`; returns the mp4 path."""
+def assemble(settings: Settings, episode: Episode, episode_dir: Path, bible: SeriesBible | None = None) -> Path:
+    """Render `final.mp4` + `caption.txt` in `episode_dir`; returns the mp4 path.
+
+    `bible` is optional — when provided, the hook opener uses its `display_name` for the
+    series title (otherwise the title is derived from the episode's `series_id`)."""
     log = logging_setup.get_logger()
     _preflight(episode, episode_dir)
 
@@ -236,11 +357,23 @@ def assemble(settings: Settings, episode: Episode, episode_dir: Path) -> Path:
         cwd=episode_dir,
     )
 
-    # 5. Loudness normalize → final.mp4 (fall back to the un-normalized mux on failure).
+    # 4b. Prepend the hook opener (hook_text burned + SFX stinger) when the hook stage ran.
+    rendered = pre
+    hook_clip = episode_dir / "hook.mp4"
+    if hook_clip.exists():
+        log.info("assemble: prepending hook %s (+ title/hook_text/episode + stinger)", hook_clip.name)
+        hookfull = _build_hook_segment(episode, bible, hook_clip, work, fps, w, h)
+        combined = work / "combined.mp4"
+        _concat_av([hookfull, pre], combined, fps, w, h)
+        rendered = combined
+    else:
+        log.warning("assemble: hook.mp4 missing — rendering body without an opener (run the hook stage)")
+
+    # 5. Loudness normalize → final.mp4 (fall back to the un-normalized render on failure).
     final = episode_dir / "final.mp4"
     log.info("assemble: normalizing to %s LUFS", settings.audio.target_lufs)
-    if not _normalize(settings, pre, final):
-        final.write_bytes(pre.read_bytes())
+    if not _normalize(settings, rendered, final):
+        final.write_bytes(rendered.read_bytes())
 
     _write_caption_txt(episode, episode_dir / "caption.txt")
     log.info("assemble: wrote %s + caption.txt", final.name)
@@ -257,7 +390,11 @@ def main() -> None:
     episode_dir = settings.episodes_dir() / args.episode
     episode = Episode.model_validate_json((episode_dir / "episode.json").read_text())
     logging_setup.setup_episode_logging(episode_dir)
-    out = assemble(settings, episode, episode_dir)
+    try:
+        bible = load_series_bible(episode.series_id)
+    except FileNotFoundError:
+        bible = None
+    out = assemble(settings, episode, episode_dir, bible)
     print(f"assemble: {out}")
 
 
