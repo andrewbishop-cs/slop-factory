@@ -40,6 +40,16 @@ punchy speech — the voiceover should run essentially the whole shot with no si
 word count to the shot's length at the stated speaking rate (below); write the fuller, more verbose \
 line rather than a short one that leaves the shot half-silent. Keep it natural and propulsive, never \
 padded filler. This is critical for retention — viewers drop on dead air.
+- CHARACTER DIALOGUE (don't let the narrator do all the talking): mix in scenes where a CHARACTER \
+speaks instead of third-person narration. To make a scene spoken in-character, BOTH must hold: \
+(1) set `narration_text` to ONLY that character's spoken words wrapped in double quotes — the whole \
+field is the quote, with no "he said"/attribution tag and no prose outside the quotes; and (2) make \
+that scene's `image_prompt` feature EXACTLY ONE character (the speaker), referred to by their bible \
+name. A quoted line whose shot shows two characters, or any text outside the quotes, will NOT be \
+voiced in-character — so give each spoken line its own single-speaker shot and cut between speakers \
+in an exchange. Aim for a healthy share of dialogue — roughly a third to half of scenes in \
+character/relationship/story episodes, fewer in a pure race — so the leads have a real voice. Spoken \
+lines still obey NARRATION DENSITY: make each one long and punchy enough to fill its shot.
 - PACING FOR RETENTION: each scene is ONE held image (a single shot). VARY shot length within the \
 range given below — quick cuts on punchy/rapid dialogue, a beat longer on an emotional or establishing \
 shot — but never exceed the hard max. Don't make every shot the same length. Prefer MANY short shots \

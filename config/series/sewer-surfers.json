@@ -44,18 +44,18 @@
   "tone": "high-energy Pixar-style sports rivalry with comedic beats and real emotional stakes",
   "arc": {
     "total_episodes": 20,
-    "synopsis": "A 20-episode season-long rivalry between Circuit and Riptide for the Sewer Crown. Episode 1 throws viewers straight into a high-stakes race. From there the season is rising action — alternating wins and defeats, new boards and strategies, qualifying heats, and deepening rivalry-into-respect — escalating tension toward the climactic Sewer Crown race.",
-    "finale": "Episode 20 IS the Sewer Crown race: the season's biggest event, it reveals the winner and closes on a victory lap and the resolution of the Circuit-Riptide relationship.",
+    "synopsis": "A 20-episode season that uses the Sewer Crown rivalry as the SPINE for a character-driven story — not a string of races. Circuit and Riptide begin as clashing rivals (cold engineering vs. raw instinct), and across the season their relationship visibly evolves: friction, a grudging respect, an uneasy alliance, a falling-out, and a hard-won bond. Between the handful of tentpole races, episodes build out the underground surf world — its crews and characters, the graffiti-tagged tunnels, the lore and origin of the Sewer Crown, why each rider really rides — and develop the two leads as people. Races are rare, anticipated events that punctuate the arc rather than define it; the real throughline is the rivalry maturing into something deeper as it escalates toward the Crown.",
+    "finale": "Episode 20 IS the Sewer Crown race — the season's biggest event — but its true payoff is the Circuit–Riptide relationship landing where the season has grown it (rivals turned partners/true friends). The winner is revealed and it closes on a victory lap that resolves their bond, not just the scoreboard.",
     "episode_purposes": [
-      "a high-stakes race or qualifying heat (a special, spaced-out tentpole event)",
+      "a high-stakes race or qualifying heat (RARE — a special, spaced-out tentpole event, not the default)",
       "inventing, building, or testing a new board, gadget, or strategy",
-      "a defeat or setback that forces a rethink",
-      "a character-development or backstory beat (why they ride)",
-      "deepening, testing, or fracturing the Circuit-Riptide relationship",
-      "a training montage or risky trial run",
-      "a rival crew or external threat to the scene",
+      "a defeat or setback that forces a rethink and reveals character",
+      "a character-development or backstory beat (who they are, why they ride, what they fear)",
+      "deepening, testing, fracturing, or repairing the Circuit-Riptide relationship",
+      "world-building & lore: the underground surf scene, its crews and culture, the history and legend of the Sewer Crown",
+      "a training run or risky trial, or a rival crew / external threat to the scene",
       "rising-tension buildup and stakes-raising toward an upcoming race"
     ],
-    "pacing_notes": "Open the season (ep 1) on a high-stakes race to hook viewers. After that, DON'T make every episode a race — space races out as anticipated tentpole events and fill between them with strategy, character, and relationship episodes. Every episode plants or pays off a seed for the Sewer Crown finale. As the episode number approaches 20, raise the stakes; episode 20 delivers the Crown race, the winner, and a victory lap."
+    "pacing_notes": "Open the season (ep 1) on a high-stakes race to hook viewers. After that, races are RARE tentpoles — only ~4-5 of the 20 episodes are actual races/heats (roughly ep 1, ~6, ~12, ~16, and the finale 20). The MAJORITY of episodes are non-race: building/strategy, defeats, character & backstory, relationship beats, and world-building/lore — every one must move the story or the rivalry forward (no filler or aimless downtime). Treat the Circuit–Riptide relationship as the season's real arc and let it move episode to episode (rivals → friction → respect → uneasy alliance → falling-out → bond) so viewers return for the STORY, not just the next race. Every episode still plants or pays off a seed for the Sewer Crown finale; as the number approaches 20, raise the stakes, and episode 20 delivers the Crown race, the winner, and a relationship-resolving victory lap."
   }
 }
