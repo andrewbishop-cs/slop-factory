@@ -123,15 +123,68 @@ def _ltx_i2v(settings: Settings, prompt: str, keyframe: Path, max_seconds: float
     _encode_to_spec(raw, out, max_seconds, fps, w, h)
 
 
-def generate_hook(settings: Settings, episode: Episode, bible: SeriesBible, episode_dir: Path) -> Path:
-    """Produce `hook.mp4` (portrait, ≤ settings.hook.max_seconds); returns its path."""
+def _generate_sfx(settings: Settings, episode: Episode, episode_dir: Path) -> Path | None:
+    """Render `episode.hook.sfx` to `hook_sfx.wav` with AudioLDM2 (text-to-audio, MPS).
+
+    Idempotent. Returns the wav path, or None when SFX is disabled, `hook.sfx` is empty, or
+    generation fails — in which case assemble falls back to its synthesized stinger.
+    """
     log = logging_setup.get_logger()
     cfg = settings.hook
+    if not cfg.sfx or not (episode.hook.sfx and episode.hook.sfx.strip()):
+        return None
+    out = episode_dir / "hook_sfx.wav"
+    if out.exists():
+        log.info("hook: sfx exists, skipping")
+        return out
+    try:
+        import soundfile as sf
+        import torch
+        from diffusers import AudioLDM2Pipeline
+
+        device = "mps" if torch.backends.mps.is_available() else "cpu"
+        duration = max(2.0, min(episode.hook.duration_sec, cfg.max_seconds))
+        log.info("hook: generating SFX from hook.sfx via %s (%d steps)", cfg.sfx_model, cfg.sfx_steps)
+        pipe = AudioLDM2Pipeline.from_pretrained(cfg.sfx_model, torch_dtype=torch.float32)
+        pipe.to(device)
+        try:
+            generator = torch.Generator().manual_seed(cfg.seed)
+            audio = pipe(
+                prompt=episode.hook.sfx,
+                negative_prompt="low quality, music, speech, dialogue, average quality",
+                num_inference_steps=cfg.sfx_steps,
+                audio_length_in_s=duration,
+                guidance_scale=cfg.sfx_guidance,
+                num_waveforms_per_prompt=1,
+                generator=generator,
+            ).audios[0]
+        finally:
+            del pipe
+            _free_mps()
+        sf.write(str(out.resolve()), audio, 16_000)  # AudioLDM2 renders at 16 kHz
+        log.info("hook: wrote %s (%.2fs SFX)", out.name, duration)
+        return out
+    except Exception as exc:
+        log.warning("hook: SFX generation failed (%s) — assemble will use the synth stinger", str(exc)[:200])
+        return None
+
+
+def generate_hook(settings: Settings, episode: Episode, bible: SeriesBible, episode_dir: Path) -> Path:
+    """Produce `hook.mp4` (+ `hook_sfx.wav` when `hook.sfx` is set); returns the mp4 path."""
+    log = logging_setup.get_logger()
     out = episode_dir / "hook.mp4"
     if out.exists():
-        log.info("hook: exists, skipping")
-        return out
+        log.info("hook: video exists, skipping")
+    else:
+        _produce_hook_video(settings, episode, bible, episode_dir, out)
+    _generate_sfx(settings, episode, episode_dir)
+    return out
 
+
+def _produce_hook_video(settings: Settings, episode: Episode, bible: SeriesBible, episode_dir: Path, out: Path) -> Path:
+    """Render the silent portrait hook clip to `out` (LTX i2v, with kenburns/library fallbacks)."""
+    log = logging_setup.get_logger()
+    cfg = settings.hook
     fps, w, h = settings.video.fps, settings.video.width, settings.video.height
     max_seconds = min(episode.hook.duration_sec, cfg.max_seconds)
 

@@ -189,9 +189,9 @@ def _build_hook_segment(episode: Episode, bible: SeriesBible | None, hook_clip: 
     """Burn the hook overlays onto `hook_clip` + add a synthesized riser→impact stinger.
 
     A minimal "show open": series title at the top, episode number at the bottom, and the hook
-    deliberately free of the running karaoke captions so the eye stays on the video. The stinger
-    (filtered pink-noise whoosh that swells + a sub-bass thump ramping in near the cut) gives the
-    opener energy without needing an SFX library; real SFX from `hook.sfx` is deferred. Returns a
+    deliberately free of the running karaoke captions so the eye stays on the video. Audio is the
+    scripted SFX (`hook_sfx.wav`, AudioLDM2) when the hook stage rendered it — layered with a
+    sub-bass thump for low-end punch — otherwise a synthesized riser→impact stinger. Returns a
     `w×h@fps` clip with AAC audio, ready to prepend.
     """
     out = work / "hookfull.mp4"
@@ -208,22 +208,37 @@ def _build_hook_segment(episode: Episode, bible: SeriesBible | None, hook_clip: 
         layers.append(_drawtext(font, ep_tf, round(h * 0.034), "h*0.88", color="yellow"))
     drawtext = ",".join(layers)
 
-    whoosh = (
-        f"[1:a]highpass=f=180,lowpass=f=6000,"
-        f"volume=eval=frame:volume='0.12+0.7*t/{dur:.3f}'[whoosh]"
-    )
-    sub = f"[2:a]volume=eval=frame:volume='0.55*pow(t/{dur:.3f}\\,4)'[sub]"
-    mix = (
-        f"[whoosh][sub]amix=inputs=2:normalize=0,"
-        f"afade=t=out:st={max(0.0, dur - 0.12):.3f}:d=0.12,"
-        f"aformat=sample_rates={AUDIO_RATE}:channel_layouts={AUDIO_LAYOUT}[a]"
-    )
-    graph = f"[0:v]{drawtext}[v];{whoosh};{sub};{mix}"
+    fade_st = max(0.0, dur - 0.12)
+    sub_lavfi = f"sine=frequency=60:duration={dur:.3f}"  # sub-bass impact, ramps in near the cut
+    sub = f"[2:a]volume=eval=frame:volume='0.45*pow(t/{dur:.3f}\\,4)'[sub]"
+    sfx_wav = hook_clip.parent / "hook_sfx.wav"
+    if sfx_wav.exists():
+        # Scripted SFX (AudioLDM2) as the hook's voice, with the sub-bass for guaranteed low-end punch.
+        inputs = ["-i", str(hook_clip.resolve()), "-i", str(sfx_wav.resolve()), "-f", "lavfi", "-i", sub_lavfi]
+        audio = (
+            f"[1:a]aformat=sample_rates={AUDIO_RATE}:channel_layouts={AUDIO_LAYOUT},"
+            f"volume=1.4,afade=t=out:st={fade_st:.3f}:d=0.12[sfx];"
+            f"{sub};"
+            f"[sfx][sub]amix=inputs=2:normalize=0,"
+            f"aformat=sample_rates={AUDIO_RATE}:channel_layouts={AUDIO_LAYOUT}[a]"
+        )
+    else:
+        # Synthesized stinger fallback: a filtered pink-noise whoosh that swells + the sub-bass.
+        inputs = [
+            "-i", str(hook_clip.resolve()),
+            "-f", "lavfi", "-i", f"anoisesrc=color=pink:amplitude=0.7:duration={dur:.3f}",
+            "-f", "lavfi", "-i", sub_lavfi,
+        ]
+        audio = (
+            f"[1:a]highpass=f=180,lowpass=f=6000,volume=eval=frame:volume='0.12+0.7*t/{dur:.3f}'[whoosh];"
+            f"{sub.replace('0.45', '0.55')};"
+            f"[whoosh][sub]amix=inputs=2:normalize=0,"
+            f"afade=t=out:st={fade_st:.3f}:d=0.12,"
+            f"aformat=sample_rates={AUDIO_RATE}:channel_layouts={AUDIO_LAYOUT}[a]"
+        )
+    graph = f"[0:v]{drawtext}[v];{audio}"
     _run([
-        "ffmpeg", "-y",
-        "-i", str(hook_clip.resolve()),
-        "-f", "lavfi", "-i", f"anoisesrc=color=pink:amplitude=0.7:duration={dur:.3f}",
-        "-f", "lavfi", "-i", f"sine=frequency=60:duration={dur:.3f}",
+        "ffmpeg", "-y", *inputs,
         "-filter_complex", graph, "-map", "[v]", "-map", "[a]", "-t", f"{dur:.3f}",
         "-c:v", "h264_videotoolbox", "-b:v", "10M", "-pix_fmt", "yuv420p", "-profile:v", "high", "-r", str(fps),
         "-c:a", "aac", "-b:a", "192k", "-ar", str(AUDIO_RATE), "-ac", "2",

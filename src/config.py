@@ -65,6 +65,13 @@ class HookConfig(BaseModel):
     gen_height: int = 832
     frame_rate: int = 24  # LTX native rate; the clip is retimed to video.fps on encode
     seed: int = 42
+    # Hook SFX: render `episode.hook.sfx` (the scripted sound, e.g. "metal groan into water roar")
+    # to matching audio with AudioLDM2 (diffusers/MPS) instead of the generic synthesized stinger.
+    # Falls back to the synth stinger when disabled, when `hook.sfx` is empty, or on any failure.
+    sfx: bool = True
+    sfx_model: str = "cvssp/audioldm2"
+    sfx_steps: int = 120
+    sfx_guidance: float = 3.5
 
 
 class TTSConfig(BaseModel):
