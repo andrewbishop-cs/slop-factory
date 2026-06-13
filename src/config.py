@@ -64,6 +64,7 @@ class HookConfig(BaseModel):
     gen_width: int = 480  # LTX gen resolution (÷32); upscaled+cropped to the video size
     gen_height: int = 832
     frame_rate: int = 24  # LTX native rate; the clip is retimed to video.fps on encode
+    ltx_guidance: float = 4.5  # higher → LTX follows the "explosive action" prompt harder (more motion)
     seed: int = 42
     # Hook SFX: render `episode.hook.sfx` (the scripted sound, e.g. "metal groan into water roar")
     # to matching audio with AudioLDM2 (diffusers/MPS) instead of the generic synthesized stinger.

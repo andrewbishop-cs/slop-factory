@@ -22,8 +22,14 @@ from src.pipeline import images, logging_setup
 from src.schemas import Episode, SeriesBible
 
 _NEG_PROMPT = (
-    "static, no motion, frozen, blurry, low quality, distorted, deformed, "
-    "extra limbs, watermark, text, caption, jpeg artifacts"
+    "static, still, motionless, frozen, slow, slideshow, single frame, no motion, "
+    "blurry, low quality, distorted, deformed, extra limbs, watermark, text, caption, jpeg artifacts"
+)
+# Appended to the keyframe prompt for LTX so it animates the frame as continuing high-speed action.
+_LTX_MOTION = (
+    "Explosive high-speed action in motion: the character rides fast and dynamically, body and board "
+    "moving, water spraying, the camera tracking the action fast. Strong motion blur, kinetic, "
+    "cinematic, highly dynamic — everything is moving."
 )
 _VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".m4v"}
 
@@ -105,13 +111,14 @@ def _ltx_i2v(settings: Settings, prompt: str, keyframe: Path, max_seconds: float
         generator = torch.Generator().manual_seed(cfg.seed)
         result = pipe(
             image=image,
-            prompt=f"{prompt}. Cinematic, dynamic camera movement, smooth high-quality motion.",
+            prompt=f"{prompt}. {_LTX_MOTION}",
             negative_prompt=_NEG_PROMPT,
             width=cfg.gen_width,
             height=cfg.gen_height,
             num_frames=num_frames,
             frame_rate=cfg.frame_rate,
             num_inference_steps=cfg.steps,
+            guidance_scale=cfg.ltx_guidance,
             generator=generator,
         )
         frames = result.frames[0]
@@ -141,11 +148,21 @@ def _generate_sfx(settings: Settings, episode: Episode, episode_dir: Path) -> Pa
         import soundfile as sf
         import torch
         from diffusers import AudioLDM2Pipeline
+        from transformers import GPT2Model
+        from transformers.generation import GenerationMixin
+
+        # AudioLDM2's checkpoint declares `language_model` as a bare GPT2Model, but its
+        # generate_language_model loop calls GenerationMixin helpers (_update_model_kwargs_for_
+        # generation / _get_initial_cache_position) that transformers >=4.52 dropped from base
+        # models — so load the LM as a GPT2Model that also mixes in GenerationMixin.
+        class _GPT2WithGen(GPT2Model, GenerationMixin):
+            pass
 
         device = "mps" if torch.backends.mps.is_available() else "cpu"
         duration = max(2.0, min(episode.hook.duration_sec, cfg.max_seconds))
         log.info("hook: generating SFX from hook.sfx via %s (%d steps)", cfg.sfx_model, cfg.sfx_steps)
-        pipe = AudioLDM2Pipeline.from_pretrained(cfg.sfx_model, torch_dtype=torch.float32)
+        language_model = _GPT2WithGen.from_pretrained(cfg.sfx_model, subfolder="language_model", torch_dtype=torch.float32)
+        pipe = AudioLDM2Pipeline.from_pretrained(cfg.sfx_model, language_model=language_model, torch_dtype=torch.float32)
         pipe.to(device)
         try:
             generator = torch.Generator().manual_seed(cfg.seed)
