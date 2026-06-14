@@ -86,11 +86,17 @@ def _use_trigger(bible: SeriesBible) -> bool:
 def _build_prompt(scene: Scene, bible: SeriesBible, characters: list[Character], use_trigger: bool) -> str:
     """Anchor the shot, leading with the art style (diffusion weights early tokens most).
 
-    Reference-image conditioning tends to copy the neutral character sheet (static
-    pose, default faint smile) and even tile the subject into the background. With
-    klein's forced `guidance=1.0` the negative-prompt path is disabled, so we steer
-    positively: inject the scene `mood` as an explicit performance, demand a dynamic
-    pose, and — for solo shots — assert a single subject to suppress background clones.
+    Reference-image conditioning tends to copy the neutral character sheet — and the sheets
+    here put each character standing on a board against a blank studio backdrop, so the edit
+    path leaks all three: a board under the feet, a water splash, and a plain white background.
+    With klein's forced `guidance=1.0` the negative-prompt path is disabled, so we steer
+    positively against each leak:
+      - inject the scene `mood` as an explicit performance + demand a dynamic pose;
+      - for solo shots assert a single subject to suppress background clones;
+      - always demand a fully-rendered `location` filling the frame (kills the blank backdrop);
+      - branch on `scene.on_board`: riding shots get the boards + rushing-water `riding_anchor`,
+        while grounded shots get an explicit on-foot / solid-ground anchor and the per-character
+        board tokens are withheld (so dialogue/interior beats aren't forced onto boards or water).
     """
     parts: list[str] = []
     labels: list[str] = []
@@ -116,8 +122,35 @@ def _build_prompt(scene: Scene, bible: SeriesBible, characters: list[Character],
         )
     else:
         framing = ""
+
+    setting = f" Setting — {scene.location.strip()}." if scene.location.strip() else ""
+    # Always fill the frame with the environment; the reference sheets are shot on a blank studio
+    # backdrop and the edit path will copy that empty background unless we explicitly forbid it.
+    environment = (
+        " The full location is rendered in detail behind and around the characters and fills the "
+        "entire frame — never a plain white, grey, gradient, studio, seamless, or empty background."
+    )
     world = f" World: {bible.world_anchor.strip()}" if bible.world_anchor else ""
-    return f"{bible.style_anchor}. In this exact style: {who}{scene.image_prompt.strip()}{emotion}{framing}{world}"
+
+    if scene.on_board:
+        boards = "; ".join(f"{c.name} on {c.board_tokens}" for c in characters if c.board_tokens)
+        ride = f" {bible.riding_anchor.strip()}" if bible.riding_anchor else ""
+        mode = f"{ride}" + (f" Boards in this shot: {boards}." if boards else "")
+    else:
+        # Counter the reference sheet's board-under-feet + water splash for non-riding beats. A board
+        # may still appear as an object (built, carried, leaning) — it just isn't being ridden.
+        mode = (
+            " The characters are on foot on solid ground — standing, walking, sitting, crouching, "
+            "leaning, or gesturing on a solid surface (concrete walkway, floor, ledge, workshop floor). "
+            "They are NOT surfing in this shot: no board under their feet and no rushing water beneath "
+            "them — the ground is solid, dry footing. Any board present is an inert object being built, "
+            "carried, or leaning, never ridden."
+        )
+
+    return (
+        f"{bible.style_anchor}. In this exact style: {who}{scene.image_prompt.strip()}"
+        f"{emotion}{framing}{setting}{environment}{world}{mode}"
+    )
 
 
 def _scene_reference_paths(characters: list[Character], settings: Settings) -> list[str]:
@@ -217,10 +250,13 @@ def generate_keyframe(
     """
     if out_path.exists():
         return out_path
-    # A throwaway single-shot scene to reuse the anchoring/reference machinery.
+    # A throwaway single-shot scene to reuse the anchoring/reference machinery. The hook is always a
+    # peak-action riding moment, so flag it on_board so the board + rushing-water anchor applies.
     scene = Scene(
         id=1,
         image_prompt=prompt_text,
+        location="mid-action in a neon-lit storm-drain tunnel, rushing water and spray",
+        on_board=True,
         motion=Motion(move="push_in", duration_sec=1.0),
         narration_text="",
         mood=episode.music.global_mood,

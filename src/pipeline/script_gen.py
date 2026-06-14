@@ -41,6 +41,17 @@ No slow intros, no static establishing shots.
 - Each scene's `image_prompt` describes the SHOT — composition, action, framing, lighting beat. \
 Refer to characters by their bible name. Do NOT restate a character's physical appearance or the \
 global art style: those are applied automatically at render time, so restating them is wasteful.
+- SCENE SETTING & VARIATION: every scene MUST set `location` — a short phrase for WHERE the shot \
+happens — and VARY it across the episode. The characters live in this underground world, so use its \
+range of places: rushing-water tunnels and drains for action, but ALSO solid-ground spots like their \
+cluttered board-building den/workshop, a concrete ledge or platform over the channel, a crew hangout, \
+a maintenance gangway, etc. Don't stage every scene on the water. Pick the location that fits the beat \
+(dialogue and building beats belong on dry ground, not mid-river).
+- RIDING vs GROUNDED: set `on_board` to true ONLY when the characters are actively riding/surfing \
+their hydro-boards on the water in that shot. For dialogue, building/tinkering, walking, standing, \
+reacting, or any on-foot beat, set `on_board` to false — those characters are on solid ground with NO \
+board under their feet. Boards and rushing water are only rendered when `on_board` is true, so be \
+honest per shot (most non-race episodes are mostly grounded with a few riding shots).
 - Every scene needs `narration_text`, a `mood` (short phrase) and an `intensity` in [0,1] that \
 tracks the emotional arc (calmer setup → peak near the climax).
 - NARRATION DENSITY (kill dead air): `narration_text` must FILL its entire shot with continuous, \

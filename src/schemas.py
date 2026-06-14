@@ -34,6 +34,14 @@ class Scene(BaseModel):
 
     id: int = Field(ge=1)
     image_prompt: str
+    # Where the shot takes place (e.g. "inside the cluttered sewer-den workshop", "on a concrete
+    # ledge over the drain", "mid-run on the rushing water"). Injected at render so every frame is
+    # set in a real environment instead of the reference sheet's blank studio backdrop. Defaulted so
+    # pre-existing episodes still validate; the writer is instructed to always fill it.
+    location: str = ""
+    # True ONLY when the characters are actively riding/surfing their boards in this shot. Gates the
+    # board + rushing-water "riding" anchor; when false the shot is grounded (on foot, no board).
+    on_board: bool = False
     motion: Motion
     narration_text: str
     top_text: str | None = None
@@ -82,7 +90,8 @@ class Character(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str
-    appearance_tokens: str
+    appearance_tokens: str  # the character's body + outfit only — NOT their board/equipment (see board_tokens)
+    board_tokens: str | None = None  # this rider's hydro-board, injected only into riding (on_board) shots
     personality: str
     reference_image: str | None = None  # canonical "character sheet" used for multi-reference consistency (M2)
     lora_trigger: str | None = None  # rare token this character maps to inside a trained LoRA, e.g. "ssriptide"
@@ -146,10 +155,14 @@ class SeriesBible(BaseModel):
     characters: list[Character] = Field(min_length=1)
     plot_state: PlotState = Field(default_factory=PlotState)
 
-    # Consistency anchors (M2). `world_anchor` is injected into every image prompt like
-    # `style_anchor`, pinning recurring props/setting (e.g. "hydro-boards, never motorcycles");
-    # `lora` is the optional trained per-series character LoRA.
+    # Consistency anchors (M2). `world_anchor` is injected into EVERY image prompt like
+    # `style_anchor` — the GENERAL world look + negative vehicle constraints (e.g. "never
+    # motorcycles"), but NOT riding-only props. `riding_anchor` is injected ONLY into shots flagged
+    # `on_board` (the boards + rushing water); grounded shots get an on-foot/solid-ground anchor
+    # instead, so dialogue/interior beats aren't forced onto water. `lora` is the optional trained
+    # per-series character LoRA.
     world_anchor: str | None = None
+    riding_anchor: str | None = None
     lora: LoraSpec | None = None
 
     # Per-series creative brief (optional, additive — drives M1 script_gen).
