@@ -30,28 +30,26 @@ Hard requirements for every episode you write:
 - Frame-1 hook: `hook_text` is an instant, curiosity-or-stakes opener. `hook` is a ≤4 second clip \
 (set hook.type to "video"). `hook.prompt` MUST describe a single PEAK-ACTION moment caught \
 MID-MOTION — the most kinetic, cinematic beat of the episode — NOT a calm intro and NOT a character \
-standing or crouching still. Think: a rider launched MID-AIR off a ramp, grinding/carving along a \
-rail or curved pipe wall, a hard cutback throwing a huge wall of water spray, a near-wipeout or \
-crash — frozen at the APEX of the action with implied speed (motion blur, flying spray/debris, a low \
-or dynamic camera angle). Feature exactly ONE named character so identity stays locked. This frame \
-gets animated into video, so the more explosive and off-balance the pose, the better the motion. \
-Set `hook.sfx` to the matching sound (e.g. "board grinding metal then an explosive water spray"). \
-No slow intros, no static establishing shots.
+standing or sitting still. Capture exactly ONE named character (so identity stays locked) frozen at \
+the APEX of this episode's most intense action, with implied speed and energy: motion blur, flying \
+debris, a low or dynamic camera angle, an off-balance or explosive pose drawn from the series' world \
+and this episode's events. This frame gets animated into video, so the more explosive and dynamic \
+the pose, the better the motion. Set `hook.sfx` to the matching sound. No slow intros, no static \
+establishing shots.
 - `characters_present` must only contain character names defined in the series bible.
 - Each scene's `image_prompt` describes the SHOT — composition, action, framing, lighting beat. \
 Refer to characters by their bible name. Do NOT restate a character's physical appearance or the \
 global art style: those are applied automatically at render time, so restating them is wasteful.
 - SCENE SETTING & VARIATION: every scene MUST set `location` — a short phrase for WHERE the shot \
-happens — and VARY it across the episode. The characters live in this underground world, so use its \
-range of places: rushing-water tunnels and drains for action, but ALSO solid-ground spots like their \
-cluttered board-building den/workshop, a concrete ledge or platform over the channel, a crew hangout, \
-a maintenance gangway, etc. Don't stage every scene on the water. Pick the location that fits the beat \
-(dialogue and building beats belong on dry ground, not mid-river).
-- RIDING vs GROUNDED: set `on_board` to true ONLY when the characters are actively riding/surfing \
-their hydro-boards on the water in that shot. For dialogue, building/tinkering, walking, standing, \
-reacting, or any on-foot beat, set `on_board` to false — those characters are on solid ground with NO \
-board under their feet. Boards and rushing water are only rendered when `on_board` is true, so be \
-honest per shot (most non-race episodes are mostly grounded with a few riding shots).
+happens — and VARY it across the episode, drawing on the full range of places in the series' world \
+(not just its signature action location). Pick the location that fits the beat: quieter dialogue, \
+planning, and character moments belong in fitting calmer spaces; big action beats in the action \
+setting. Don't stage every scene in the same place.
+- SCENE ACTION: every scene MUST set `action` to ONE of the series' declared action tags (listed \
+under SCENE ACTIONS in the bible). Choose the tag matching what the characters are physically DOING \
+in that shot — the renderer applies different guardrails per action (what's under their feet, what \
+gear appears, etc.), so be honest per shot and DON'T tag everything as the high-energy action. Most \
+non-tentpole episodes are mostly the calmer/default action with only a few high-action shots.
 - Every scene needs `narration_text`, a `mood` (short phrase) and an `intensity` in [0,1] that \
 tracks the emotional arc (calmer setup → peak near the climax).
 - NARRATION DENSITY (kill dead air): `narration_text` must FILL its entire shot with continuous, \
@@ -67,7 +65,8 @@ that scene's `image_prompt` feature EXACTLY ONE character (the speaker), referre
 name. A quoted line whose shot shows two characters, or any text outside the quotes, will NOT be \
 voiced in-character — so give each spoken line its own single-speaker shot and cut between speakers \
 in an exchange. Aim for a healthy share of dialogue — roughly a third to half of scenes in \
-character/relationship/story episodes, fewer in a pure race — so the leads have a real voice. Spoken \
+character/relationship/story episodes, fewer in a pure action/tentpole episode — so the leads have a \
+real voice. Spoken \
 lines still obey NARRATION DENSITY: make each one long and punchy enough to fill its shot.
 - PACING FOR RETENTION: each scene is ONE held image (a single shot). VARY shot length within the \
 range given below — quick cuts on punchy/rapid dialogue, a beat longer on an emotional or establishing \
@@ -87,10 +86,10 @@ so the episode is unmistakably an episode of THIS series.
 
 If the series has a SEASON ARC: this episode is one beat in a longer story, not a standalone. \
 Use the stated episode number and the arc's `synopsis`/`pacing_notes` to decide this episode's purpose \
-— vary it per `episode_purposes` and DON'T default to a race every time (races are spaced tentpole \
-events). Advance the overarching plot, plant or pay off a seed toward the finale, and keep continuity \
-with the recent episodes. If this is the FINAL episode, deliver the arc's `finale`. Return only the \
-structured episode."""
+— vary it per `episode_purposes` and DON'T default to the same tentpole purpose every time (tentpole \
+events are spaced out). Advance the overarching plot, plant or pay off a seed toward the finale, and \
+keep continuity with the recent episodes. If this is the FINAL episode, deliver the arc's `finale`. \
+Return only the structured episode."""
 
 
 def _render_bible(bible: SeriesBible) -> str:
@@ -120,6 +119,12 @@ def _render_bible(bible: SeriesBible) -> str:
     lines.append("CHARACTERS:")
     for c in bible.characters:
         lines.append(f"  - {c.name}: {c.personality}. Appearance: {c.appearance_tokens}")
+    if bible.actions:
+        lines.append("SCENE ACTIONS (set each scene's `action` to one of these tags):")
+        for tag, act in bible.actions.items():
+            default = " [default]" if tag == bible.default_action else ""
+            hint = f" — {act.description}" if act.description else ""
+            lines.append(f"  - {tag}{default}{hint}")
     return "\n".join(lines)
 
 
@@ -154,13 +159,14 @@ def _render_position(bible: SeriesBible, episode_id: str | None = None) -> str:
         return f"EPISODE POSITION: this is episode {n} (no fixed season length)."
     total = bible.arc.total_episodes
     if n >= total:
-        role = "This is the FINALE — deliver the arc's `finale` (the Sewer Crown race, the winner, a victory lap)."
+        role = "This is the FINALE — deliver the arc's `finale`."
     elif n == 1:
-        role = "Season opener — throw the viewer straight into a high-stakes race to hook them."
+        role = "Season opener — open big with a high-stakes first beat to hook the viewer (per the arc)."
     elif n >= total - 2:
         role = "Late season — raise the stakes hard and set up the imminent finale."
     else:
-        role = "Mid-season — pick a NON-race purpose from the arc unless a race is specifically earned here; advance the overarching plot and build anticipation."
+        role = ("Mid-season — advance the overarching plot and vary this episode's purpose per the arc's "
+                "`episode_purposes` (don't repeat the same purpose every time); build anticipation.")
     return f"EPISODE POSITION: episode {n} of {total}. {role}"
 
 

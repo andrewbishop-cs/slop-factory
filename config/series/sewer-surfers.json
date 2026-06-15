@@ -6,7 +6,7 @@
     {
       "name": "circuit",
       "appearance_tokens": "a small wiry monkey with warm golden-brown fur, an oversized rounded head with huge curious amber eyes, and a long prehensile tail; brainy gadgeteer in cool-toned beach streetwear — an oversized cyan-and-white mesh-panel windbreaker worn open, a baggy graphic tee, roomy cargo board-shorts, and chunky neon-yellow pool slides; a snorkel-and-goggle set pushed up on his head and a clear waterproof gadget sling-bag, signature yellow number 3",
-      "board_tokens": "a sensor-studded cyan hydro-surfboard bristling with small fins",
+      "equipment_tokens": "a sensor-studded cyan hydro-surfboard bristling with small fins",
       "personality": "brainy, calculating, over-prepared; wins by out-engineering the course with gadgets, telemetry, and clever lines",
       "reference_image": "assets/characters/circuit/ref.png",
       "lora_trigger": "sscircuit",
@@ -16,7 +16,7 @@
     {
       "name": "riptide",
       "appearance_tokens": "a lean, athletic cat with sleek charcoal-black fur, an oversized head with huge sharp green eyes, a torn ear and a spiky fur mohawk; fearless daredevil in bold warm-toned beach streetwear — a fitted sleeveless magenta-and-black graphic rashguard tank under an open palm-print bomber, long flame-and-wave print board-shorts, a shark-tooth cord necklace and grippy neon-orange reef shoes, signature white number 7",
-      "board_tokens": "a stripped-down minimalist neon-orange hydro-surfboard built for raw speed",
+      "equipment_tokens": "a stripped-down minimalist neon-orange hydro-surfboard built for raw speed",
       "personality": "reckless, fearless, rides on pure instinct and adrenaline; takes insane lines no sane surfer would attempt",
       "reference_image": "assets/characters/riptide/ref.png",
       "lora_trigger": "ssriptide",
@@ -28,7 +28,7 @@
     "active_threads": [
       "Circuit and Riptide are the scene's two top riders; the season-long duel for the Sewer Crown is just beginning"
     ],
-    "last_cliffhanger": "The shadow in the tunnel raised a hand — and it was holding a board marked exactly like theirs.",
+    "last_cliffhanger": "\"You two think the Sewer Crown is yours? I taught you both to ride.\"",
     "episode_log": [
       "sewer-surfers_ep_0001: First Drop",
       "sewer-surfers_ep_0002: The Board That Broke",
@@ -36,11 +36,25 @@
       "sewer-surfers_ep_0004: One Board, Two Riders",
       "sewer-surfers_ep_0005: Build It Bigger",
       "sewer-surfers_ep_0006: The Spine That Held",
-      "sewer-surfers_ep_0007: The Mark in the Board"
+      "sewer-surfers_ep_0007: The Mark in the Board",
+      "sewer-surfers_ep_0008: The Third Rider"
     ]
   },
   "world_anchor": "Set in a vast neon-lit underground world beneath a rain-soaked city — storm drains, flood tunnels, sluice gates, graffiti-tagged concrete, glowing algae, and shafts of streetlight through the grates above; plus the riders' own lived-in spaces down there (cluttered board-building dens and workshops, hangouts, crew haunts). Any vehicle/board that appears is ONLY a custom water hydro-surfboard — never motorcycles, bikes, skateboards, wheels, handlebars, metal grind-rails, train tracks, or cars.",
-  "riding_anchor": "The characters are actively SURFING right now: balanced (standing or crouched) on their custom finned hydro-surfboards, riding fast-rushing neon water down the tunnels with spray flying — boards clearly under their feet and rushing water beneath them.",
+  "actions": {
+    "riding": {
+      "description": "actively surfing/riding their hydro-boards on the rushing water",
+      "use_equipment": true,
+      "anchor": "The characters are actively SURFING right now: balanced (standing or crouched) on their custom finned hydro-surfboards, riding fast-rushing neon water down the tunnels with spray flying — boards clearly under their feet and rushing water beneath them, mid-action and fully committed to the ride, never idle or posed."
+    },
+    "grounded": {
+      "description": "on foot on solid ground — dialogue, building/tinkering, reacting, walking (NOT riding)",
+      "use_equipment": false,
+      "anchor": "The characters are on foot on solid ground — standing, walking, sitting, crouching, leaning, or gesturing on a solid surface (concrete walkway, floor, ledge, workshop floor). They are NOT surfing in this shot: no board under their feet and no rushing water beneath them — the ground is solid, dry footing. Any board present is an inert object being built, carried, or leaning, never ridden."
+    }
+  },
+  "default_action": "grounded",
+  "hook_action": "riding",
   "lora": {
     "path": "assets/characters/sewer-surfers/lora.safetensors",
     "scale": 1.0,

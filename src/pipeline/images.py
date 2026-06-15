@@ -30,7 +30,7 @@ from mflux.models.flux2.variants import Flux2KleinEdit
 from PIL import Image
 
 from src.config import PROJECT_ROOT, Settings
-from src.schemas import Character, Episode, Motion, Scene, SeriesBible
+from src.schemas import Character, Episode, Motion, Scene, SceneAction, SeriesBible
 
 _MOVES = ("push_in", "pull_out", "pan_left", "pan_right", "pan_up", "pan_down")
 
@@ -83,20 +83,34 @@ def _use_trigger(bible: SeriesBible) -> bool:
     return bool(bible.lora and bible.lora.trained and (PROJECT_ROOT / bible.lora.path).exists())
 
 
-def _build_prompt(scene: Scene, bible: SeriesBible, characters: list[Character], use_trigger: bool) -> str:
-    """Anchor the shot, leading with the art style (diffusion weights early tokens most).
+def _resolve_action(bible: SeriesBible, tag: str) -> SceneAction | None:
+    """Look a scene's `action` tag up in the bible, falling back to `default_action`.
 
-    Reference-image conditioning tends to copy the neutral character sheet — and the sheets
-    here put each character standing on a board against a blank studio backdrop, so the edit
-    path leaks all three: a board under the feet, a water splash, and a plain white background.
-    With klein's forced `guidance=1.0` the negative-prompt path is disabled, so we steer
-    positively against each leak:
-      - inject the scene `mood` as an explicit performance + demand a dynamic pose;
-      - for solo shots assert a single subject to suppress background clones;
-      - always demand a fully-rendered `location` filling the frame (kills the blank backdrop);
-      - branch on `scene.on_board`: riding shots get the boards + rushing-water `riding_anchor`,
-        while grounded shots get an explicit on-foot / solid-ground anchor and the per-character
-        board tokens are withheld (so dialogue/interior beats aren't forced onto boards or water).
+    Series-agnostic: the engine knows nothing about what any tag means — all of that
+    (riding vs on-foot, cooking, investigating, ...) is data in `bible.actions`.
+    """
+    if tag and tag in bible.actions:
+        return bible.actions[tag]
+    if bible.default_action and bible.default_action in bible.actions:
+        return bible.actions[bible.default_action]
+    return None
+
+
+def _build_prompt(scene: Scene, bible: SeriesBible, characters: list[Character], use_trigger: bool) -> str:
+    """Assemble the image prompt, leading with the art style (diffusion weights early tokens most).
+
+    The engine is domain-agnostic: it carries only the *universal* rendering-quality guardrails
+    (every series inherits these) and pulls everything series-specific from the bible.
+      Universal (here): style first; each character's appearance; an emotion/acting + dynamic-pose
+      cue (reference sheets default to a neutral pose); a single-subject / exact-count cue (the edit
+      path tends to clone the subject into the background); and a "fill the frame, never a blank
+      studio backdrop" cue (the sheets are shot on plain backgrounds and the model copies them).
+      Series-specific (bible): the art `style_anchor`, the per-scene `location`, the general
+      `world_anchor`, and the scene's `action` profile — its guardrail anchor (e.g. "actively
+      surfing, board under their feet, rushing water" vs. "on foot on solid ground, no board") plus,
+      when that action `use_equipment`, each present character's `equipment_tokens`.
+    With klein's forced `guidance=1.0` the negative-prompt path is disabled, so every guardrail is
+    phrased positively.
     """
     parts: list[str] = []
     labels: list[str] = []
@@ -132,20 +146,16 @@ def _build_prompt(scene: Scene, bible: SeriesBible, characters: list[Character],
     )
     world = f" World: {bible.world_anchor.strip()}" if bible.world_anchor else ""
 
-    if scene.on_board:
-        boards = "; ".join(f"{c.name} on {c.board_tokens}" for c in characters if c.board_tokens)
-        ride = f" {bible.riding_anchor.strip()}" if bible.riding_anchor else ""
-        mode = f"{ride}" + (f" Boards in this shot: {boards}." if boards else "")
+    # Series-specific activity: the scene's action tag → its bible-defined guardrail + gear.
+    action = _resolve_action(bible, scene.action.strip())
+    if action:
+        mode = f" {action.anchor.strip()}"
+        if action.use_equipment:
+            gear = "; ".join(f"{c.name} with {c.equipment_tokens}" for c in characters if c.equipment_tokens)
+            if gear:
+                mode += f" Equipment in this shot: {gear}."
     else:
-        # Counter the reference sheet's board-under-feet + water splash for non-riding beats. A board
-        # may still appear as an object (built, carried, leaning) — it just isn't being ridden.
-        mode = (
-            " The characters are on foot on solid ground — standing, walking, sitting, crouching, "
-            "leaning, or gesturing on a solid surface (concrete walkway, floor, ledge, workshop floor). "
-            "They are NOT surfing in this shot: no board under their feet and no rushing water beneath "
-            "them — the ground is solid, dry footing. Any board present is an inert object being built, "
-            "carried, or leaning, never ridden."
-        )
+        mode = ""
 
     return (
         f"{bible.style_anchor}. In this exact style: {who}{scene.image_prompt.strip()}"
@@ -250,13 +260,14 @@ def generate_keyframe(
     """
     if out_path.exists():
         return out_path
-    # A throwaway single-shot scene to reuse the anchoring/reference machinery. The hook is always a
-    # peak-action riding moment, so flag it on_board so the board + rushing-water anchor applies.
+    # A throwaway single-shot scene to reuse the anchoring/reference machinery. The hook is the
+    # episode's peak-action moment, so tag it with the series' `hook_action` (falling back to the
+    # default) — the engine injects that action's anchor + gear, no domain assumptions here.
+    hook_tag = bible.hook_action or bible.default_action or ""
     scene = Scene(
         id=1,
         image_prompt=prompt_text,
-        location="mid-action in a neon-lit storm-drain tunnel, rushing water and spray",
-        on_board=True,
+        action=hook_tag,
         motion=Motion(move="push_in", duration_sec=1.0),
         narration_text="",
         mood=episode.music.global_mood,

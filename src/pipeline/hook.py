@@ -26,10 +26,11 @@ _NEG_PROMPT = (
     "blurry, low quality, distorted, deformed, extra limbs, watermark, text, caption, jpeg artifacts"
 )
 # Appended to the keyframe prompt for LTX so it animates the frame as continuing high-speed action.
+# Domain-agnostic (no series-specific props): the *subject* of the action comes from the keyframe.
 _LTX_MOTION = (
-    "Explosive high-speed action in motion: the character rides fast and dynamically, body and board "
-    "moving, water spraying, the camera tracking the action fast. Strong motion blur, kinetic, "
-    "cinematic, highly dynamic — everything is moving."
+    "Explosive high-speed action in motion: the character moves fast and dynamically through the "
+    "scene, the camera tracking the action fast. Strong motion blur, kinetic, cinematic, highly "
+    "dynamic — everything is moving."
 )
 _VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".m4v"}
 
