@@ -283,6 +283,9 @@ def generate_script(
         )
 
     (episode_dir / "episode.json").write_text(episode.model_dump_json(indent=2) + "\n")
+    # Snapshot the plot_state as it was BEFORE recording this episode, so deleting the episode
+    # can roll the series continuity back exactly (the review UI's delete uses this).
+    (episode_dir / "plot_state_before.json").write_text(bible.plot_state.model_dump_json(indent=2) + "\n")
     _update_plot_state(bible, episode)
     return episode
 

@@ -20,7 +20,9 @@ to plain text-to-image, so reference and non-reference scenes share one loaded m
 
 from __future__ import annotations
 
+import argparse
 import hashlib
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -29,7 +31,7 @@ from mflux.models.common.config import ModelConfig
 from mflux.models.flux2.variants import Flux2KleinEdit
 from PIL import Image
 
-from src.config import PROJECT_ROOT, Settings
+from src.config import PROJECT_ROOT, Settings, load_series_bible, load_settings
 from src.schemas import Character, Episode, Motion, Scene, SceneAction, SeriesBible
 
 _MOVES = ("push_in", "pull_out", "pan_left", "pan_right", "pan_up", "pan_down")
@@ -301,6 +303,59 @@ def generate_keyframe(
     return out_path
 
 
+def regenerate_scene(
+    settings: Settings,
+    episode: Episode,
+    bible: SeriesBible,
+    episode_dir: Path,
+    scene_id: int,
+    *,
+    seed: int | None = None,
+) -> Path:
+    """Re-render a single scene PNG, overwriting it (the review-UI "re-roll" path).
+
+    Unlike `generate_images` (deterministic, stable per-scene seed so reruns reproduce the
+    same frame), this draws a fresh random seed by default so each re-roll yields a genuinely
+    different take while keeping the same prompt, character anchoring, and references.
+    """
+    scene = next((s for s in episode.scenes if s.id == scene_id), None)
+    if scene is None:
+        raise ValueError(f"scene {scene_id} not found in {episode.episode_id}")
+
+    images_dir = episode_dir / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    out = images_dir / f"scene_{scene_id:02d}.png"
+
+    target_w, target_h = settings.video.width, settings.video.height
+    gen_w, gen_h = _gen_dims(target_w, target_h)
+
+    characters = _characters_in_scene(scene, episode, bible)
+    prompt = _build_prompt(scene, bible, characters, _use_trigger(bible))
+    references = _scene_reference_paths(characters, settings)
+    if settings.image.use_references and not references:
+        raise ValueError(
+            f"scene {scene_id:02d}: Flux2KleinEdit requires at least one reference image, but none were "
+            f"found for {[c.name for c in characters] or 'this scene'}. Run scripts/establish_characters.py "
+            f"--series {episode.series_id} first, or disable image.use_references."
+        )
+
+    if seed is None:
+        seed = int.from_bytes(os.urandom(4), "big")
+    print(f"[{episode.episode_id}] re-roll scene {scene_id:02d}: rendering (seed {seed})")
+    model = _load_model(settings, bible)
+    result = model.generate_image(
+        seed=seed,
+        prompt=prompt,
+        num_inference_steps=settings.image.steps,
+        width=gen_w,
+        height=gen_h,
+        guidance=settings.image.guidance,
+        image_paths=references or None,
+    )
+    _center_crop(result.image, target_w, target_h).save(out)
+    return out
+
+
 def _zoompan_filter(move: str, frames: int, width: int, height: int, fps: int) -> str:
     """Build an ffmpeg zoompan expression for a Ken Burns move (no commas → argv-safe)."""
     n = max(1, frames - 1)
@@ -382,3 +437,23 @@ def ken_burns(
         capture_output=True,
     )
     return out_path
+
+
+def main() -> None:
+    """Re-roll a single scene image standalone (the review-UI re-roll shells out to this)."""
+    parser = argparse.ArgumentParser(description="Re-roll one scene image for an existing episode.")
+    parser.add_argument("--episode", required=True, help="episode id, e.g. sewer-surfers_ep_0001")
+    parser.add_argument("--reroll", type=int, required=True, metavar="SCENE_ID", help="scene id to re-render")
+    parser.add_argument("--seed", type=int, default=None, help="optional fixed seed (default: random)")
+    args = parser.parse_args()
+
+    settings = load_settings()
+    episode_dir = settings.episodes_dir() / args.episode
+    episode = Episode.model_validate_json((episode_dir / "episode.json").read_text())
+    bible = load_series_bible(episode.series_id)
+    out = regenerate_scene(settings, episode, bible, episode_dir, args.reroll, seed=args.seed)
+    print(f"images: re-rolled {out}")
+
+
+if __name__ == "__main__":
+    main()

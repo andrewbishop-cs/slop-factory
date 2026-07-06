@@ -28,7 +28,7 @@
     "active_threads": [
       "Circuit and Riptide are the scene's two top riders; the season-long duel for the Sewer Crown is just beginning"
     ],
-    "last_cliffhanger": "\"You two think the Sewer Crown is yours? I taught you both to ride.\"",
+    "last_cliffhanger": "He vanished into a tunnel that isn't on any map — leaving their own mark glowing on the wall, daring them to follow.",
     "episode_log": [
       "sewer-surfers_ep_0001: First Drop",
       "sewer-surfers_ep_0002: The Board That Broke",
@@ -37,20 +37,20 @@
       "sewer-surfers_ep_0005: Build It Bigger",
       "sewer-surfers_ep_0006: The Spine That Held",
       "sewer-surfers_ep_0007: The Mark in the Board",
-      "sewer-surfers_ep_0008: The Third Rider"
+      "sewer-surfers_ep_0008: The Third Mark"
     ]
   },
   "world_anchor": "Set in a vast neon-lit underground world beneath a rain-soaked city — storm drains, flood tunnels, sluice gates, graffiti-tagged concrete, glowing algae, and shafts of streetlight through the grates above; plus the riders' own lived-in spaces down there (cluttered board-building dens and workshops, hangouts, crew haunts). Any vehicle/board that appears is ONLY a custom water hydro-surfboard — never motorcycles, bikes, skateboards, wheels, handlebars, metal grind-rails, train tracks, or cars.",
   "actions": {
     "riding": {
-      "description": "actively surfing/riding their hydro-boards on the rushing water",
+      "anchor": "The characters are actively SURFING right now: balanced (standing or crouched) on their custom finned hydro-surfboards, riding fast-rushing neon water down the tunnels with spray flying — boards clearly under their feet and rushing water beneath them, mid-action and fully committed to the ride, never idle or posed.",
       "use_equipment": true,
-      "anchor": "The characters are actively SURFING right now: balanced (standing or crouched) on their custom finned hydro-surfboards, riding fast-rushing neon water down the tunnels with spray flying — boards clearly under their feet and rushing water beneath them, mid-action and fully committed to the ride, never idle or posed."
+      "description": "actively surfing/riding their hydro-boards on the rushing water"
     },
     "grounded": {
-      "description": "on foot on solid ground — dialogue, building/tinkering, reacting, walking (NOT riding)",
+      "anchor": "The characters are on foot on solid ground — standing, walking, sitting, crouching, leaning, or gesturing on a solid surface (concrete walkway, floor, ledge, workshop floor). They are NOT surfing in this shot: no board under their feet and no rushing water beneath them — the ground is solid, dry footing. Any board present is an inert object being built, carried, or leaning, never ridden.",
       "use_equipment": false,
-      "anchor": "The characters are on foot on solid ground — standing, walking, sitting, crouching, leaning, or gesturing on a solid surface (concrete walkway, floor, ledge, workshop floor). They are NOT surfing in this shot: no board under their feet and no rushing water beneath them — the ground is solid, dry footing. Any board present is an inert object being built, carried, or leaning, never ridden."
+      "description": "on foot on solid ground — dialogue, building/tinkering, reacting, walking (NOT riding)"
     }
   },
   "default_action": "grounded",
